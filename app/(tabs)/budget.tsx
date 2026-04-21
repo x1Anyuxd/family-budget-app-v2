@@ -5,7 +5,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColors } from '@/hooks/use-colors';
 import { useBudget } from '@/lib/budget-context';
 import { getI18n } from '@/lib/i18n';
-import ScreenContainer from '@/components/screen-container';
+import { ScreenContainer } from '@/components/screen-container';
 
 export default function BudgetScreen() {
   const colors = useColors();
