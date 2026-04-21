@@ -1,6 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
 
-export async function takePhoto() {
+export interface PickedImage {
+  uri: string;
+  base64?: string;
+  mimeType?: string;
+}
+
+export async function takePhoto(): Promise<PickedImage | null> {
   const { status } = await ImagePicker.requestCameraPermissionsAsync();
   if (status !== 'granted') {
     alert('需要相机权限');
@@ -12,13 +18,16 @@ export async function takePhoto() {
     quality: 0.5,
     base64: true,
   });
-  if (!result.canceled) {
-    return result.assets[0].base64;
-  }
-  return null;
+  if (result.canceled) return null;
+  const asset = result.assets[0];
+  return {
+    uri: asset.uri,
+    base64: asset.base64 ?? undefined,
+    mimeType: asset.mimeType ?? 'image/jpeg',
+  };
 }
 
-export async function pickImageFromLibrary() {
+export async function pickImageFromLibrary(): Promise<PickedImage | null> {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== 'granted') {
     alert('需要相册权限');
@@ -30,17 +39,17 @@ export async function pickImageFromLibrary() {
     quality: 0.5,
     base64: true,
   });
-  if (!result.canceled) {
-    return result.assets[0].base64;
-  }
-  return null;
+  if (result.canceled) return null;
+  const asset = result.assets[0];
+  return {
+    uri: asset.uri,
+    base64: asset.base64 ?? undefined,
+    mimeType: asset.mimeType ?? 'image/jpeg',
+  };
 }
 
-export function ensureBase64(data: string) {
-  if (data.startsWith('data:')) {
-    return data.split(',')[1];
-  }
-  return data;
+export async function ensureBase64(image: PickedImage): Promise<PickedImage> {
+  return image;
 }
 
 export function base64ToDataUrl(base64: string, type = 'image/jpeg') {

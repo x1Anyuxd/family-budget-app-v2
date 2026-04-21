@@ -57,6 +57,7 @@ type BudgetAction =
       settings: AppSettings;
     }
   | { type: 'ADD_TRANSACTION'; transaction: Transaction }
+  | { type: 'UPDATE_TRANSACTION'; transaction: Transaction }
   | { type: 'DELETE_TRANSACTION'; id: string }
   | { type: 'SET_BUDGET'; budget: Budget }
   | { type: 'DELETE_BUDGET'; id: string }
@@ -67,7 +68,9 @@ type BudgetAction =
   | { type: 'UPDATE_SETTINGS'; patch: Partial<AppSettings> }
   | { type: 'ADD_MESSAGES'; messages: InboxMessage[] }
   | { type: 'MARK_MESSAGE_READ'; id: string }
-  | { type: 'MERGE_IMPORTED_BILLS'; payload: BillTransferPayload };
+  | { type: 'DELETE_MESSAGE'; id: string }
+  | { type: 'DELETE_ANNOUNCEMENT_GROUP'; senderId: string; content: string }
+  | { type: 'MERGE_IMPORTED_BILLS'; payload: BillTransferPayload; userId: string | null; userName?: string };
 
 function reducer(state: BudgetState, action: BudgetAction): BudgetState {
   switch (action.type) {
@@ -84,6 +87,13 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
       };
     case 'ADD_TRANSACTION':
       return { ...state, transactions: [action.transaction, ...state.transactions] };
+    case 'UPDATE_TRANSACTION':
+      return {
+        ...state,
+        transactions: state.transactions.map((item) =>
+          item.id === action.transaction.id ? action.transaction : item,
+        ),
+      };
     case 'DELETE_TRANSACTION':
       return { ...state, transactions: state.transactions.filter((t) => t.id !== action.id) };
     case 'SET_BUDGET': {
@@ -111,12 +121,7 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
       return {
         ...state,
         users: state.users.map((user) =>
-          user.id === action.userId
-            ? {
-                ...user,
-                ...action.patch,
-              }
-            : user,
+          user.id === action.userId ? { ...user, ...action.patch } : user,
         ),
       };
     case 'UPDATE_SETTINGS':
@@ -130,11 +135,39 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
           message.id === action.id ? { ...message, isRead: true } : message,
         ),
       };
+    case 'DELETE_MESSAGE':
+      return {
+        ...state,
+        inbox: state.inbox.filter((message) => message.id !== action.id),
+      };
+    case 'DELETE_ANNOUNCEMENT_GROUP':
+      return {
+        ...state,
+        inbox: state.inbox.filter(
+          (message) =>
+            !(
+              message.type === 'announcement' &&
+              message.senderId === action.senderId &&
+              message.content === action.content
+            ),
+        ),
+      };
     case 'MERGE_IMPORTED_BILLS': {
-      const incomingTransactions = action.payload.transactions.filter(
+      const ownerId = action.userId;
+      const ownerName = action.userName;
+      const normalizedTransactions = action.payload.transactions.map((item) => ({
+        ...item,
+        userId: ownerId ?? item.userId,
+        userName: ownerName ?? item.userName,
+      }));
+      const normalizedBudgets = action.payload.budgets.map((item) => ({
+        ...item,
+        userId: ownerId ?? item.userId,
+      }));
+      const incomingTransactions = normalizedTransactions.filter(
         (item) => !state.transactions.some((existing) => existing.id === item.id),
       );
-      const incomingBudgets = action.payload.budgets.filter(
+      const incomingBudgets = normalizedBudgets.filter(
         (item) => !state.budgets.some((existing) => existing.id === item.id),
       );
       return {
@@ -174,6 +207,7 @@ interface BudgetContextValue {
   isAdmin: boolean;
   inboxMessages: InboxMessage[];
   addTransaction: (transaction: Transaction) => Promise<void>;
+  updateTransaction: (transaction: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => void;
   setBudget: (budget: Budget) => void;
   deleteBudget: (id: string) => void;
@@ -188,6 +222,8 @@ interface BudgetContextValue {
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   publishAnnouncement: (content: string) => Promise<AuthResult>;
   markMessageRead: (id: string) => void;
+  deleteMessage: (id: string) => void;
+  deleteAnnouncementGroup: (message: InboxMessage) => void;
   getExportPayload: () => BillTransferPayload;
   importBills: (payload: BillTransferPayload) => Promise<void>;
 }
@@ -247,6 +283,19 @@ function makeId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function normalizeLegacyTransaction(item: Transaction): Transaction {
+  return {
+    ...item,
+    note: item.note ?? '',
+  };
+}
+
+function normalizeLegacyBudget(item: Budget): Budget {
+  return {
+    ...item,
+  };
+}
+
 export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, {
     transactions: [],
@@ -261,14 +310,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const [
-          txRaw,
-          bgRaw,
-          usersRaw,
-          currentUserRaw,
-          inboxRaw,
-          settingsRaw,
-        ] = await Promise.all([
+        const [txRaw, bgRaw, usersRaw, currentUserRaw, inboxRaw, settingsRaw] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEY_TRANSACTIONS),
           AsyncStorage.getItem(STORAGE_KEY_BUDGETS),
           AsyncStorage.getItem(STORAGE_KEY_USERS),
@@ -279,8 +321,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
         dispatch({
           type: 'LOAD',
-          transactions: txRaw ? JSON.parse(txRaw) : [],
-          budgets: bgRaw ? JSON.parse(bgRaw) : [],
+          transactions: txRaw ? JSON.parse(txRaw).map(normalizeLegacyTransaction) : [],
+          budgets: bgRaw ? JSON.parse(bgRaw).map(normalizeLegacyBudget) : [],
           users: usersRaw ? JSON.parse(usersRaw) : [],
           currentUserId: currentUserRaw ?? null,
           inbox: inboxRaw ? JSON.parse(inboxRaw) : [],
@@ -353,9 +395,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const getMonthTransactions = useCallback(
     (month: string, userId?: string) => {
       const targetUserId = resolveUserId(userId);
+      if (!targetUserId) return [];
       return state.transactions
+        .filter((item) => item.userId === targetUserId)
         .filter((item) => item.date.startsWith(month))
-        .filter((item) => (targetUserId ? item.userId === targetUserId || !item.userId : true))
         .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
     },
     [resolveUserId, state.transactions],
@@ -364,8 +407,9 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const getRecentTransactions = useCallback(
     (limit = 5, userId?: string) => {
       const targetUserId = resolveUserId(userId);
+      if (!targetUserId) return [];
       return [...state.transactions]
-        .filter((item) => (targetUserId ? item.userId === targetUserId || !item.userId : true))
+        .filter((item) => item.userId === targetUserId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, limit);
     },
@@ -385,15 +429,17 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const getMonthBudgets = useCallback(
     (month: string, userId?: string) => {
       const targetUserId = resolveUserId(userId);
-      return state.budgets.filter((item) => item.month === month && (targetUserId ? item.userId === targetUserId || !item.userId : true));
+      if (!targetUserId) return [];
+      return state.budgets.filter((item) => item.month === month && item.userId === targetUserId);
     },
     [resolveUserId, state.budgets],
   );
 
   const addTransaction = useCallback(
     async (transaction: Transaction) => {
-      const ownerId = currentUser?.id ?? transaction.userId;
-      const ownerName = currentUser?.displayName ?? currentUser?.username ?? transaction.userName;
+      if (!currentUser) return;
+      const ownerId = currentUser.id;
+      const ownerName = currentUser.displayName || currentUser.username;
       const normalizedTransaction: Transaction = {
         ...transaction,
         userId: ownerId,
@@ -402,27 +448,20 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
       dispatch({ type: 'ADD_TRANSACTION', transaction: normalizedTransaction });
 
-      if (
-        normalizedTransaction.type === 'expense' &&
-        ownerId &&
-        state.settings.budgetAlertEnabled
-      ) {
+      if (normalizedTransaction.type === 'expense' && state.settings.budgetAlertEnabled) {
         const month = getMonthFromDate(normalizedTransaction.date);
         const targetBudget = state.budgets.find(
-          (item) =>
-            item.month === month &&
-            item.categoryId === normalizedTransaction.categoryId &&
-            (item.userId === ownerId || !item.userId),
+          (item) => item.month === month && item.categoryId === normalizedTransaction.categoryId && item.userId === ownerId,
         );
 
         if (targetBudget) {
           const spent = state.transactions
             .filter(
               (item) =>
+                item.userId === ownerId &&
                 item.type === 'expense' &&
                 item.categoryId === normalizedTransaction.categoryId &&
-                getMonthFromDate(item.date) === month &&
-                (item.userId === ownerId || !item.userId),
+                getMonthFromDate(item.date) === month,
             )
             .reduce((sum, item) => sum + item.amount, 0) + normalizedTransaction.amount;
 
@@ -449,15 +488,26 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     [currentUser, state.budgets, state.settings.budgetAlertEnabled, state.settings.notificationsEnabled, state.transactions],
   );
 
+  const updateTransaction = useCallback(async (transaction: Transaction) => {
+    if (!currentUser) return;
+    const normalizedTransaction: Transaction = {
+      ...transaction,
+      userId: currentUser.id,
+      userName: currentUser.displayName || currentUser.username,
+    };
+    dispatch({ type: 'UPDATE_TRANSACTION', transaction: normalizedTransaction });
+  }, [currentUser]);
+
   const deleteTransaction = useCallback((id: string) => {
     dispatch({ type: 'DELETE_TRANSACTION', id });
   }, []);
 
   const setBudget = useCallback(
     (budget: Budget) => {
+      if (!currentUser) return;
       const normalizedBudget: Budget = {
         ...budget,
-        userId: currentUser?.id ?? budget.userId,
+        userId: currentUser.id,
       };
       dispatch({ type: 'SET_BUDGET', budget: normalizedBudget });
     },
@@ -514,9 +564,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
     dispatch({ type: 'UPDATE_SETTINGS', patch });
-    if (patch.notificationsEnabled) {
-      await requestNotificationPermission();
-    }
+    if (patch.notificationsEnabled) await requestNotificationPermission();
   }, []);
 
   const publishAnnouncement = useCallback(async (content: string) => {
@@ -555,25 +603,47 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'MARK_MESSAGE_READ', id });
   }, []);
 
+  const deleteMessage = useCallback((id: string) => {
+    dispatch({ type: 'DELETE_MESSAGE', id });
+  }, []);
+
+  const deleteAnnouncementGroup = useCallback((message: InboxMessage) => {
+    dispatch({
+      type: 'DELETE_ANNOUNCEMENT_GROUP',
+      senderId: message.senderId,
+      content: message.content,
+    });
+  }, []);
+
   const getExportPayload = useCallback((): BillTransferPayload => {
     const targetUserId = state.currentUserId;
+    if (!targetUserId) {
+      return {
+        exportedAt: new Date().toISOString(),
+        exportedBy: currentUser?.displayName,
+        transactions: [],
+        budgets: [],
+      };
+    }
     return {
       exportedAt: new Date().toISOString(),
       exportedBy: currentUser?.displayName,
-      transactions: state.transactions.filter((item) => (targetUserId ? item.userId === targetUserId || !item.userId : true)),
-      budgets: state.budgets.filter((item) => (targetUserId ? item.userId === targetUserId || !item.userId : true)),
+      transactions: state.transactions.filter((item) => item.userId === targetUserId),
+      budgets: state.budgets.filter((item) => item.userId === targetUserId),
     };
   }, [currentUser?.displayName, state.budgets, state.currentUserId, state.transactions]);
 
   const importBills = useCallback(async (payload: BillTransferPayload) => {
-    dispatch({ type: 'MERGE_IMPORTED_BILLS', payload });
-  }, []);
+    dispatch({
+      type: 'MERGE_IMPORTED_BILLS',
+      payload,
+      userId: currentUser?.id ?? null,
+      userName: currentUser?.displayName ?? currentUser?.username,
+    });
+  }, [currentUser]);
 
   const inboxMessages = useMemo(
-    () =>
-      state.inbox
-        .filter((item) => (state.currentUserId ? item.recipientId === state.currentUserId : false))
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    () => state.inbox.filter((item) => (state.currentUserId ? item.recipientId === state.currentUserId : false)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [state.currentUserId, state.inbox],
   );
 
@@ -587,6 +657,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       isAdmin: Boolean(currentUser?.isAdmin),
       inboxMessages,
       addTransaction,
+      updateTransaction,
       deleteTransaction,
       setBudget,
       deleteBudget,
@@ -601,6 +672,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       publishAnnouncement,
       markMessageRead,
+      deleteMessage,
+      deleteAnnouncementGroup,
       getExportPayload,
       importBills,
     }),
@@ -609,6 +682,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       currentUser,
       inboxMessages,
       addTransaction,
+      updateTransaction,
       deleteTransaction,
       setBudget,
       deleteBudget,
@@ -623,6 +697,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       publishAnnouncement,
       markMessageRead,
+      deleteMessage,
+      deleteAnnouncementGroup,
       getExportPayload,
       importBills,
     ],

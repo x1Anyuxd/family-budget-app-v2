@@ -1,22 +1,59 @@
-import * as XLSX from 'xlsx';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Transaction, getCategoryById, formatAmount, formatDate } from './types';
+import * as XLSX from 'xlsx';
 
-/**
- * 生成 Excel 文件并分享
- */
-export async function exportTransactionsToExcel(
-  transactions: Transaction[],
-  monthLabel: string
-): Promise<boolean> {
+import { Transaction, formatAmount, formatDate, getCategoryById } from './types';
+
+function downloadBase64FileOnWeb(base64: string, fileName: string, mimeType: string): boolean {
+  if (typeof window === 'undefined') return false;
   try {
-    if (transactions.length === 0) {
-      console.warn('No transactions to export');
-      return false;
-    }
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch (error) {
+    console.error('Web download failed:', error);
+    return false;
+  }
+}
 
-    // 准备数据
+async function saveOrShareExcel(base64: string, fileName: string, dialogTitle: string): Promise<boolean> {
+  const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  if (Platform.OS === 'web') {
+    return downloadBase64FileOnWeb(base64, fileName, mimeType);
+  }
+
+  const filePath = `${FileSystem.documentDirectory}${fileName}`;
+  await FileSystem.writeAsStringAsync(filePath, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(filePath, {
+      mimeType,
+      dialogTitle,
+    });
+    return true;
+  }
+
+  return false;
+}
+
+export async function exportTransactionsToExcel(transactions: Transaction[], monthLabel: string): Promise<boolean> {
+  try {
+    if (transactions.length === 0) return false;
+
     const data = transactions.map((tx) => {
       const category = getCategoryById(tx.categoryId);
       return {
@@ -28,62 +65,28 @@ export async function exportTransactionsToExcel(
       };
     });
 
-    // 创建工作簿
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '记账');
+    ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 20 }];
 
-    // 设置列宽
-    const colWidths = [
-      { wch: 12 }, // 日期
-      { wch: 12 }, // 分类
-      { wch: 10 }, // 类型
-      { wch: 12 }, // 金额
-      { wch: 20 }, // 备注
-    ];
-    ws['!cols'] = colWidths;
-
-    // 生成 Excel 文件
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-    const fileName = `记账_${monthLabel}.xlsx`;
-    const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-    // 写入文件
-    await FileSystem.writeAsStringAsync(filePath, wbout, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    // 分享文件
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(filePath, {
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        dialogTitle: `分享记账表格 - ${monthLabel}`,
-      });
-      return true;
-    }
-
-    console.warn('Sharing not available');
-    return false;
+    return saveOrShareExcel(wbout, `记账_${monthLabel}.xlsx`, `分享记账表格 - ${monthLabel}`);
   } catch (error) {
     console.error('Excel export error:', error);
     return false;
   }
 }
 
-/**
- * 生成统计汇总表
- */
 export async function exportStatisticsToExcel(
   categoryStats: Array<{ name: string; amount: number; percentage: number }>,
   monthLabel: string,
   totalIncome: number,
-  totalExpense: number
+  totalExpense: number,
 ): Promise<boolean> {
   try {
-    // 创建工作簿
     const wb = XLSX.utils.book_new();
 
-    // 汇总表
     const summaryData = [
       { 项目: '总收入', 金额: formatAmount(totalIncome) },
       { 项目: '总支出', 金额: formatAmount(totalExpense) },
@@ -92,7 +95,6 @@ export async function exportStatisticsToExcel(
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, wsSummary, '汇总');
 
-    // 分类统计表
     const categoryData = categoryStats.map((stat) => ({
       分类: stat.name,
       金额: formatAmount(stat.amount),
@@ -101,24 +103,8 @@ export async function exportStatisticsToExcel(
     const wsCategory = XLSX.utils.json_to_sheet(categoryData);
     XLSX.utils.book_append_sheet(wb, wsCategory, '分类统计');
 
-    // 生成文件
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-    const fileName = `统计_${monthLabel}.xlsx`;
-    const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-    await FileSystem.writeAsStringAsync(filePath, wbout, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(filePath, {
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        dialogTitle: `分享统计表格 - ${monthLabel}`,
-      });
-      return true;
-    }
-
-    return false;
+    return saveOrShareExcel(wbout, `统计_${monthLabel}.xlsx`, `分享统计表格 - ${monthLabel}`);
   } catch (error) {
     console.error('Statistics export error:', error);
     return false;

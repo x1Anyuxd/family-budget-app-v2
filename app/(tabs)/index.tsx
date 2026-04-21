@@ -39,6 +39,11 @@ function nextMonth(month: string): string {
   return `${year}-${String(m + 1).padStart(2, '0')}`;
 }
 
+function getAvatarText(name?: string) {
+  if (!name) return 'G';
+  return name.trim().slice(0, 1).toUpperCase();
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -47,6 +52,7 @@ export default function HomeScreen() {
     currentUser,
     users,
     isAdmin,
+    isAuthenticated,
     getMonthTransactions,
     getMonthSummary,
     publishAnnouncement,
@@ -59,14 +65,15 @@ export default function HomeScreen() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showMemberBillsModal, setShowMemberBillsModal] = useState(false);
   const [announcementText, setAnnouncementText] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
   const otherMembers = useMemo(
     () => users.filter((user) => user.id !== currentUser?.id),
     [currentUser?.id, users],
   );
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
-  const summary = getMonthSummary(month);
-  const transactions = getMonthTransactions(month).slice(0, 10);
+  const summary = isAuthenticated ? getMonthSummary(month) : { income: 0, expense: 0, balance: 0 };
+  const transactions = isAuthenticated ? getMonthTransactions(month).slice(0, 10) : [];
   const selectedMemberTransactions = selectedMemberId ? getMonthTransactions(month, selectedMemberId) : [];
 
   const openMemberBills = () => {
@@ -95,7 +102,7 @@ export default function HomeScreen() {
     return (
       <SwipeDeleteRow key={item.id} onDelete={() => deleteTransaction(item.id)}>
         <View style={[styles.txRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}> 
-          <View style={[styles.catIcon, { backgroundColor: `${category?.color ?? colors.muted}22` }]}>
+          <View style={[styles.catIcon, { backgroundColor: `${category?.color ?? colors.muted}22` }]}> 
             <IconSymbol name={(category?.icon as any) || 'more-horiz'} size={20} color={category?.color ?? colors.muted} />
           </View>
           <View style={styles.txInfo}>
@@ -105,7 +112,7 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View style={styles.txRight}>
-            <Text style={[styles.txAmount, { color: isIncome ? colors.success : colors.error }]}>
+            <Text style={[styles.txAmount, { color: isIncome ? colors.success : colors.error }]}> 
               {isIncome ? '+' : '-'}¥{formatAmount(item.amount)}
             </Text>
             <Text style={[styles.txDate, { color: colors.muted }]}>{formatDate(item.date)}</Text>
@@ -120,10 +127,7 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={[styles.header, { backgroundColor: colors.primary }]}> 
           <View style={styles.headerTopRow}>
-            <View>
-              <Text style={styles.headerTitle}>{i18n.home.title}</Text>
-              <Text style={styles.headerSubtitle}>{currentUser ? `${currentUser.displayName}` : i18n.settings.guest}</Text>
-            </View>
+            <Text style={styles.headerTitle}>{i18n.home.title}</Text>
             {isAdmin ? (
               <Pressable
                 onPress={() => setShowAdminSheet(true)}
@@ -131,7 +135,16 @@ export default function HomeScreen() {
               >
                 <IconSymbol name="plus.circle.fill" size={26} color="#fff" />
               </Pressable>
-            ) : null}
+            ) : (
+              <View style={styles.adminBtnPlaceholder} />
+            )}
+          </View>
+
+          <View style={styles.avatarCenterWrap}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{getAvatarText(currentUser?.displayName || currentUser?.username)}</Text>
+            </View>
+            <Text style={styles.headerSubtitle}>{currentUser ? currentUser.displayName : i18n.home.guestWatermark}</Text>
           </View>
 
           <View style={styles.monthRow}>
@@ -163,11 +176,20 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{i18n.home.recentTransactions}</Text>
-            <Pressable onPress={() => router.push('/(tabs)/records' as any)} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>{i18n.home.viewAll}</Text>
-            </Pressable>
+            {isAuthenticated ? (
+              <Pressable onPress={() => router.push('/(tabs)/records' as any)} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+                <Text style={[styles.seeAll, { color: colors.primary }]}>{i18n.home.viewAll}</Text>
+              </Pressable>
+            ) : null}
           </View>
-          {transactions.length === 0 ? (
+
+          {!isAuthenticated ? (
+            <View style={[styles.guestWatermarkBox, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+              <Text style={[styles.guestWatermark, { color: `${colors.primary}33` }]}>{i18n.home.guestWatermark}</Text>
+              <Text style={[styles.emptyText, { color: colors.muted }]}>{i18n.home.guestHint}</Text>
+              <Text style={[styles.emptyHint, { color: colors.muted }]}>{i18n.home.guestDesc}</Text>
+            </View>
+          ) : transactions.length === 0 ? (
             <View style={[styles.emptyBox, { backgroundColor: colors.surface }]}> 
               <IconSymbol name="note.text" size={40} color={colors.muted} />
               <Text style={[styles.emptyText, { color: colors.muted }]}>{i18n.home.noTransactions}</Text>
@@ -194,7 +216,7 @@ export default function HomeScreen() {
 
       <Modal visible={showAdminSheet} transparent animationType="fade" onRequestClose={() => setShowAdminSheet(false)}>
         <Pressable style={styles.modalMask} onPress={() => setShowAdminSheet(false)}>
-          <View style={[styles.actionSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.actionSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{i18n.home.adminActions}</Text>
             <Pressable
               onPress={() => {
@@ -216,7 +238,7 @@ export default function HomeScreen() {
 
       <Modal visible={showAnnouncementModal} transparent animationType="slide" onRequestClose={() => setShowAnnouncementModal(false)}>
         <View style={styles.centeredModal}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>{i18n.home.publishAnnouncement}</Text>
             <TextInput
               value={announcementText}
@@ -241,7 +263,7 @@ export default function HomeScreen() {
 
       <Modal visible={showMemberBillsModal} transparent animationType="slide" onRequestClose={() => setShowMemberBillsModal(false)}>
         <View style={styles.centeredModal}>
-          <View style={[styles.largeModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.largeModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <View style={styles.sectionHeader}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>{i18n.home.memberBills}</Text>
               <Pressable onPress={() => setShowMemberBillsModal(false)}>
@@ -262,13 +284,13 @@ export default function HomeScreen() {
                 );
               })}
             </ScrollView>
-            <ScrollView style={{ maxHeight: 340 }}>
+            <ScrollView style={{ marginTop: 12 }}>
               {selectedMemberTransactions.length === 0 ? (
-                <View style={styles.memberEmptyWrap}>
-                  <Text style={[styles.itemHint, { color: colors.muted }]}>{i18n.common.noData}</Text>
+                <View style={styles.emptyBox}>
+                  <Text style={[styles.emptyText, { color: colors.muted }]}>{i18n.home.noTransactions}</Text>
                 </View>
               ) : (
-                selectedMemberTransactions.map(renderTransaction)
+                selectedMemberTransactions.map((item) => renderTransaction(item))
               )}
             </ScrollView>
           </View>
@@ -280,102 +302,129 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingTop: 16,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: 18,
+    paddingBottom: 24,
+    paddingHorizontal: 18,
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
     color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
   },
   headerSubtitle: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 14,
+    marginTop: 10,
+    fontWeight: '500',
   },
   adminBtn: {
-    padding: 4,
+    padding: 2,
   },
-  monthRow: {
-    flexDirection: 'row',
+  adminBtnPlaceholder: {
+    width: 28,
+  },
+  avatarCenterWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  avatarCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  monthRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   monthBtn: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   monthText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
-    marginHorizontal: 16,
+    marginHorizontal: 18,
   },
   summaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginTop: 18,
   },
   summaryCard: {
     flex: 1,
     alignItems: 'center',
   },
   summaryCardCenter: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.3)',
   },
   summaryLabel: {
+    color: 'rgba(255,255,255,0.82)',
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   summaryValue: {
+    color: '#fff',
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
   },
   section: {
-    padding: 20,
+    padding: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   seeAll: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
   txList: {
-    borderRadius: 16,
     borderWidth: 1,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   catIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -385,7 +434,7 @@ const styles = StyleSheet.create({
   },
   txCat: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   txNote: {
     fontSize: 12,
@@ -396,70 +445,84 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   txDate: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   emptyBox: {
-    borderRadius: 16,
-    padding: 40,
+    paddingVertical: 38,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    borderRadius: 16,
+  },
+  guestWatermarkBox: {
+    minHeight: 220,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    overflow: 'hidden',
+  },
+  guestWatermark: {
+    position: 'absolute',
+    fontSize: 32,
+    fontWeight: '800',
+    transform: [{ rotate: '-12deg' }],
   },
   emptyText: {
     fontSize: 16,
-    fontWeight: '500',
-    marginTop: 8,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   emptyHint: {
     fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    right: 18,
+    bottom: 22,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 18,
     paddingVertical: 14,
-    borderRadius: 30,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   fabText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   modalMask: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-end',
   },
   actionSheet: {
-    borderRadius: 18,
-    padding: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderWidth: 1,
+    padding: 18,
     gap: 12,
   },
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 4,
   },
   sheetButton: {
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    padding: 14,
+    borderRadius: 14,
   },
   sheetButtonText: {
     fontSize: 15,
@@ -467,18 +530,18 @@ const styles = StyleSheet.create({
   },
   centeredModal: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    padding: 20,
   },
   modalCard: {
-    borderRadius: 18,
     borderWidth: 1,
+    borderRadius: 18,
     padding: 18,
   },
   largeModalCard: {
-    borderRadius: 18,
     borderWidth: 1,
+    borderRadius: 18,
     padding: 18,
     maxHeight: '80%',
   },
@@ -490,53 +553,43 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 120,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
-    fontSize: 15,
+    fontSize: 14,
   },
   modalButtonRow: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 10,
     marginTop: 14,
   },
   secondaryButton: {
-    flex: 1,
-    borderRadius: 12,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   secondaryButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   primaryModalButton: {
-    flex: 1,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   memberSelectorRow: {
-    gap: 10,
-    paddingBottom: 14,
+    gap: 8,
+    paddingBottom: 4,
   },
   memberChip: {
-    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-  },
-  memberEmptyWrap: {
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  itemHint: {
-    fontSize: 14,
+    borderRadius: 999,
   },
 });

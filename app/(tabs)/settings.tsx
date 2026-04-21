@@ -34,6 +34,7 @@ export default function SettingsScreen() {
     updateProfile,
     updateSettings,
     markMessageRead,
+    deleteAnnouncementGroup,
   } = useBudget();
   const { currentTheme, setCurrentTheme } = useThemeContext();
   const i18n = getI18n(settings.locale);
@@ -45,6 +46,7 @@ export default function SettingsScreen() {
   const [registerName, setRegisterName] = useState('');
   const [registerIsAdmin, setRegisterIsAdmin] = useState(false);
 
+  const [profileExpanded, setProfileExpanded] = useState(false);
   const [profileName, setProfileName] = useState(currentUser?.displayName ?? '');
   const [gender, setGender] = useState<Gender | undefined>(currentUser?.gender);
   const [phone, setPhone] = useState(currentUser?.phone ?? '');
@@ -55,12 +57,30 @@ export default function SettingsScreen() {
     setGender(currentUser?.gender);
     setPhone(currentUser?.phone ?? '');
     setBirthday(currentUser?.birthday ?? '');
+    setProfileExpanded(false);
   }, [currentUser]);
 
   const unreadCount = useMemo(
     () => inboxMessages.filter((item) => !item.isRead).length,
     [inboxMessages],
   );
+
+  const profileSummary = useMemo(() => {
+    if (!currentUser) return i18n.settings.noProfile;
+    const segments = [
+      currentUser.displayName || currentUser.username,
+      currentUser.gender
+        ? currentUser.gender === 'male'
+          ? i18n.settings.male
+          : currentUser.gender === 'female'
+            ? i18n.settings.female
+            : i18n.settings.other
+        : '',
+      currentUser.phone || '',
+      currentUser.birthday || '',
+    ].filter(Boolean);
+    return segments.length > 0 ? segments.join(' · ') : i18n.settings.noProfile;
+  }, [currentUser, i18n.settings]);
 
   const handleAuth = async () => {
     if (authMode === 'login') {
@@ -107,7 +127,15 @@ export default function SettingsScreen() {
       phone,
       birthday,
     });
+    setProfileExpanded(false);
     Alert.alert(i18n.common.success, i18n.messages.profileSaved);
+  };
+
+  const handleDeleteAnnouncement = (messageId: string) => {
+    const target = inboxMessages.find((item) => item.id === messageId);
+    if (!target) return;
+    deleteAnnouncementGroup(target);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   return (
@@ -120,26 +148,6 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{i18n.settings.login}</Text>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-            <View style={styles.segmentRow}>
-              {(['login', 'register'] as const).map((mode) => {
-                const active = authMode === mode;
-                return (
-                  <Pressable
-                    key={mode}
-                    onPress={() => setAuthMode(mode)}
-                    style={[
-                      styles.segmentButton,
-                      { backgroundColor: active ? colors.primary : colors.background },
-                    ]}
-                  >
-                    <Text style={{ color: active ? '#fff' : colors.foreground, fontWeight: '600' }}>
-                      {mode === 'login' ? i18n.settings.login : i18n.settings.register}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
             {currentUser ? (
               <>
                 <View style={styles.rowBetween}>
@@ -151,7 +159,7 @@ export default function SettingsScreen() {
                   </View>
                   <View style={[styles.badge, { backgroundColor: currentUser.isAdmin ? colors.primary : colors.background }]}> 
                     <Text style={{ color: currentUser.isAdmin ? '#fff' : colors.foreground, fontSize: 12, fontWeight: '600' }}>
-                      {currentUser.isAdmin ? 'Admin' : 'Member'}
+                      {currentUser.isAdmin ? i18n.settings.roleAdmin : i18n.settings.roleMember}
                     </Text>
                   </View>
                 </View>
@@ -164,6 +172,25 @@ export default function SettingsScreen() {
               </>
             ) : (
               <>
+                <View style={styles.segmentRow}>
+                  {(['login', 'register'] as const).map((mode) => {
+                    const active = authMode === mode;
+                    return (
+                      <Pressable
+                        key={mode}
+                        onPress={() => setAuthMode(mode)}
+                        style={[
+                          styles.segmentButton,
+                          { backgroundColor: active ? colors.primary : colors.background },
+                        ]}
+                      >
+                        <Text style={{ color: active ? '#fff' : colors.foreground, fontWeight: '600' }}>
+                          {mode === 'login' ? i18n.settings.login : i18n.settings.register}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
                 <Text style={[styles.hint, { color: colors.muted }]}>
                   {authMode === 'login' ? i18n.settings.loginHint : i18n.settings.registerHint}
                 </Text>
@@ -236,84 +263,103 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{i18n.settings.profile}</Text>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-            <Pressable onPress={handlePickAvatar} style={styles.avatarRow}>
-              {currentUser?.avatarUri ? (
-                <Image source={{ uri: currentUser.avatarUri }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, { backgroundColor: colors.background, borderColor: colors.border }]}> 
-                  <IconSymbol name="person.crop.circle" size={40} color={colors.primary} />
+            <View style={styles.rowBetween}>
+              <View style={styles.profileSummaryWrap}>
+                {currentUser?.avatarUri ? (
+                  <Image source={{ uri: currentUser.avatarUri }} style={styles.summaryAvatar} />
+                ) : (
+                  <View style={[styles.summaryAvatar, { backgroundColor: colors.background, borderColor: colors.border }]}> 
+                    <IconSymbol name="person.crop.circle" size={34} color={colors.primary} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.itemTitle, { color: colors.foreground }]}>{i18n.settings.profileSummary}</Text>
+                  <Text style={[styles.itemSubtitle, { color: colors.muted }]}>{profileSummary}</Text>
                 </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.itemTitle, { color: colors.foreground }]}>{i18n.settings.avatar}</Text>
-                <Text style={[styles.itemSubtitle, { color: colors.muted }]}>{i18n.settings.chooseAvatar}</Text>
               </View>
-            </Pressable>
+              <Pressable
+                onPress={() => setProfileExpanded((prev) => !prev)}
+                style={[styles.miniActionBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
+                <Text style={[styles.miniActionText, { color: colors.foreground }]}>
+                  {profileExpanded ? i18n.settings.hideProfile : i18n.settings.editProfile}
+                </Text>
+              </Pressable>
+            </View>
 
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}> 
-              <TextInput
-                value={profileName}
-                onChangeText={setProfileName}
-                placeholder={i18n.settings.name}
-                placeholderTextColor={colors.muted}
-                editable={Boolean(currentUser)}
-                style={[styles.input, { color: colors.foreground }]}
-              />
-            </View>
-            <View style={styles.genderRow}>
-              {([
-                ['male', i18n.settings.male],
-                ['female', i18n.settings.female],
-                ['other', i18n.settings.other],
-              ] as const).map(([value, label]) => {
-                const active = gender === value;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => currentUser && setGender(value as Gender)}
-                    style={[
-                      styles.genderBtn,
-                      { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface },
-                    ]}
-                  >
-                    <Text style={{ color: active ? '#fff' : colors.foreground, fontWeight: '600' }}>{label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}> 
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder={i18n.settings.phone}
-                placeholderTextColor={colors.muted}
-                editable={Boolean(currentUser)}
-                keyboardType="phone-pad"
-                style={[styles.input, { color: colors.foreground }]}
-              />
-            </View>
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}> 
-              <TextInput
-                value={birthday}
-                onChangeText={setBirthday}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.muted}
-                editable={Boolean(currentUser)}
-                style={[styles.input, { color: colors.foreground }]}
-              />
-            </View>
-            <Pressable
-              onPress={() => {
-                if (!currentUser) {
-                  Alert.alert(i18n.common.warning, i18n.messages.needLogin);
-                  return;
-                }
-                handleSaveProfile();
-              }}
-              style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
-            >
-              <Text style={styles.primaryButtonText}>{i18n.settings.saveProfile}</Text>
-            </Pressable>
+            {profileExpanded ? (
+              <>
+                <Pressable onPress={handlePickAvatar} style={styles.avatarRow}>
+                  <Text style={[styles.itemTitle, { color: colors.foreground }]}>{i18n.settings.avatar}</Text>
+                  <Text style={[styles.itemSubtitle, { color: colors.muted }]}>{i18n.settings.chooseAvatar}</Text>
+                </Pressable>
+
+                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}> 
+                  <TextInput
+                    value={profileName}
+                    onChangeText={setProfileName}
+                    placeholder={i18n.settings.name}
+                    placeholderTextColor={colors.muted}
+                    editable={Boolean(currentUser)}
+                    style={[styles.input, { color: colors.foreground }]}
+                  />
+                </View>
+                <View style={styles.genderRow}>
+                  {([
+                    ['male', i18n.settings.male],
+                    ['female', i18n.settings.female],
+                    ['other', i18n.settings.other],
+                  ] as const).map(([value, label]) => {
+                    const active = gender === value;
+                    return (
+                      <Pressable
+                        key={value}
+                        onPress={() => currentUser && setGender(value as Gender)}
+                        style={[
+                          styles.genderBtn,
+                          { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.surface },
+                        ]}
+                      >
+                        <Text style={{ color: active ? '#fff' : colors.foreground, fontWeight: '600' }}>{label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}> 
+                  <TextInput
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder={i18n.settings.phone}
+                    placeholderTextColor={colors.muted}
+                    editable={Boolean(currentUser)}
+                    keyboardType="phone-pad"
+                    style={[styles.input, { color: colors.foreground }]}
+                  />
+                </View>
+                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}> 
+                  <TextInput
+                    value={birthday}
+                    onChangeText={setBirthday}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.muted}
+                    editable={Boolean(currentUser)}
+                    style={[styles.input, { color: colors.foreground }]}
+                  />
+                </View>
+                <Pressable
+                  onPress={() => {
+                    if (!currentUser) {
+                      Alert.alert(i18n.common.warning, i18n.messages.needLogin);
+                      return;
+                    }
+                    handleSaveProfile();
+                  }}
+                  style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <Text style={styles.primaryButtonText}>{i18n.settings.saveProfile}</Text>
+                </Pressable>
+              </>
+            ) : null}
           </View>
         </View>
 
@@ -335,7 +381,7 @@ export default function SettingsScreen() {
             <View style={styles.rowBetween}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.itemTitle, { color: colors.foreground }]}>{i18n.settings.budgetAlert}</Text>
-                <Text style={[styles.itemSubtitle, { color: colors.muted }]}>超出预算时写入收信箱并触发提醒</Text>
+                <Text style={[styles.itemSubtitle, { color: colors.muted }]}>{i18n.settings.budgetAlertDesc}</Text>
               </View>
               <Switch
                 value={settings.budgetAlertEnabled}
@@ -405,20 +451,40 @@ export default function SettingsScreen() {
             {inboxMessages.length === 0 ? (
               <Text style={[styles.itemSubtitle, { color: colors.muted }]}>{i18n.settings.noMessages}</Text>
             ) : (
-              inboxMessages.map((message) => (
-                <Pressable
-                  key={message.id}
-                  onPress={() => markMessageRead(message.id)}
-                  style={[styles.mailItem, { borderColor: colors.border, backgroundColor: message.isRead ? colors.surface : colors.background }]}
-                >
-                  <View style={styles.rowBetween}>
-                    <Text style={[styles.itemTitle, { color: colors.foreground, flex: 1 }]}>{message.title}</Text>
-                    {!message.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+              inboxMessages.map((message) => {
+                const canDeleteAnnouncement = Boolean(
+                  currentUser?.isAdmin &&
+                  message.type === 'announcement' &&
+                  message.senderId === currentUser?.id,
+                );
+
+                return (
+                  <View
+                    key={message.id}
+                    style={[styles.mailItem, { borderColor: colors.border, backgroundColor: message.isRead ? colors.surface : colors.background }]}
+                  >
+                    <View style={styles.rowBetween}>
+                      <Pressable onPress={() => markMessageRead(message.id)} style={styles.mailContentPressable}>
+                        <Text style={[styles.itemTitle, { color: colors.foreground, flex: 1 }]}>{message.title}</Text>
+                        <Text style={[styles.itemSubtitle, { color: colors.foreground, marginTop: 6 }]}>{message.content}</Text>
+                        <Text style={[styles.mailMeta, { color: colors.muted }]}>{new Date(message.createdAt).toLocaleString()}</Text>
+                      </Pressable>
+                      <View style={styles.mailActions}>
+                        {!message.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+                        {canDeleteAnnouncement ? (
+                          <Pressable
+                            onPress={() => handleDeleteAnnouncement(message.id)}
+                            style={[styles.deleteChip, { backgroundColor: `${colors.error}18` }]}
+                          >
+                            <IconSymbol name="trash" size={12} color={colors.error} />
+                            <Text style={[styles.deleteChipText, { color: colors.error }]}>{i18n.settings.deleteAnnouncement}</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    </View>
                   </View>
-                  <Text style={[styles.itemSubtitle, { color: colors.foreground, marginTop: 6 }]}>{message.content}</Text>
-                  <Text style={[styles.mailMeta, { color: colors.muted }]}>{new Date(message.createdAt).toLocaleString()}</Text>
-                </Pressable>
-              ))
+                );
+              })
             )}
           </View>
         </View>
@@ -427,7 +493,7 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{i18n.settings.about}</Text>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text style={[styles.itemTitle, { color: colors.foreground }]}>{i18n.settings.version}</Text>
-            <Text style={[styles.itemSubtitle, { color: colors.muted }]}>2.0.0-local</Text>
+            <Text style={[styles.itemSubtitle, { color: colors.muted }]}>EXD毕业设计</Text>
           </View>
         </View>
       </ScrollView>
@@ -534,18 +600,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarRow: {
+  profileSummaryWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  summaryAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+  },
+  miniActionBtn: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  miniActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  avatarRow: {
+    paddingVertical: 6,
   },
   genderRow: {
     flexDirection: 'row',
@@ -599,10 +679,31 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
   },
+  mailContentPressable: {
+    flex: 1,
+  },
+  mailActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
   unreadDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  deleteChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  deleteChipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   mailMeta: {
     marginTop: 8,
