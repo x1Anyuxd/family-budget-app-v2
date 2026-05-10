@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -53,6 +54,7 @@ export default function HomeScreen() {
     users,
     isAdmin,
     isAuthenticated,
+    inboxMessages,
     getMonthTransactions,
     getMonthSummary,
     publishAnnouncement,
@@ -151,22 +153,40 @@ export default function HomeScreen() {
         <View style={[styles.header, { backgroundColor: colors.primary }]}> 
           <View style={styles.headerTopRow}>
             <Text style={styles.headerTitle}>{i18n.home.title}</Text>
-            {isAdmin ? (
+            <View style={styles.headerRightActions}>
               <Pressable
-                onPress={() => setShowAdminSheet(true)}
-                style={({ pressed }) => [styles.adminBtn, pressed && { opacity: 0.75 }]}
+                onPress={() => router.push('/(tabs)/settings' as any)}
+                style={({ pressed }) => [styles.inboxBtn, pressed && { opacity: 0.75 }]}
               >
-                <IconSymbol name="plus.circle.fill" size={26} color="#fff" />
+                <IconSymbol name="mail" size={22} color="#fff" />
+                {inboxMessages.some((msg: any) => !msg.isRead) && (
+                  <View style={styles.redDot} />
+                )}
               </Pressable>
-            ) : (
-              <View style={styles.adminBtnPlaceholder} />
-            )}
+              {isAdmin ? (
+                <Pressable
+                  onPress={() => setShowAdminSheet(true)}
+                  style={({ pressed }) => [styles.adminBtn, pressed && { opacity: 0.75 }]}
+                >
+                  <IconSymbol name="plus.circle.fill" size={26} color="#fff" />
+                </Pressable>
+              ) : (
+                <View style={styles.adminBtnPlaceholder} />
+              )}
+            </View>
           </View>
 
           <View style={styles.avatarCenterWrap}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{getAvatarText(currentUser?.displayName || currentUser?.username)}</Text>
-            </View>
+            {currentUser?.avatarUri ? (
+              <Image
+                source={{ uri: currentUser.avatarUri }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{getAvatarText(currentUser?.displayName || currentUser?.username)}</Text>
+              </View>
+            )}
             <Text style={styles.headerSubtitle}>{currentUser ? currentUser.displayName : i18n.home.guestWatermark}</Text>
           </View>
 
@@ -373,6 +393,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 28,
     fontWeight: '700',
+  },
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inboxBtn: {
+    padding: 6,
+    position: 'relative',
+  },
+  redDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff4444',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   monthRow: {
     marginTop: 12,
