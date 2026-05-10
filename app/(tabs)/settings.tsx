@@ -35,7 +35,7 @@ export default function SettingsScreen() {
     updateProfile,
     updateSettings,
     markMessageRead,
-    deleteAnnouncementGroup,
+    deleteMessage,
   } = useBudget();
   const { currentTheme, setCurrentTheme } = useThemeContext();
   const i18n = getI18n(settings.locale);
@@ -133,9 +133,7 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAnnouncement = (messageId: string) => {
-    const target = inboxMessages.find((item) => item.id === messageId);
-    if (!target) return;
-    deleteAnnouncementGroup(target);
+    deleteMessage(messageId);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
