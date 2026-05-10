@@ -257,7 +257,6 @@ export default function BudgetScreen() {
                           <Text style={[styles.badgeText, { color: colors.success }]}>{Math.round(item.progress * 100)}%</Text>
                         </View>
                       )}
-                      <Text style={[styles.swipeHint, { color: colors.muted }]}>{settings.locale === 'en' ? 'Swipe left to delete' : '左划删除'}</Text>
                     </View>
                   </View>
                 </SwipeDeleteRow>

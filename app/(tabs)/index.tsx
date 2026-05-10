@@ -100,7 +100,30 @@ export default function HomeScreen() {
     const category = getCategoryById(item.categoryId);
     const isIncome = item.type === 'income';
     return (
-      <SwipeDeleteRow key={item.id} onDelete={() => deleteTransaction(item.id)}>
+      <SwipeDeleteRow
+        key={item.id}
+        rightActions={[
+          {
+            key: 'edit',
+            label: i18n.common.edit,
+            icon: 'pencil',
+            color: colors.primary,
+            onPress: () => {
+              router.push({
+                pathname: '/(tabs)/add-transaction',
+                params: { transactionId: item.id },
+              } as any);
+            },
+          },
+          {
+            key: 'delete',
+            label: i18n.common.delete,
+            icon: 'trash',
+            color: colors.error,
+            onPress: () => deleteTransaction(item.id),
+          },
+        ]}
+      >
         <View style={[styles.txRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}> 
           <View style={[styles.catIcon, { backgroundColor: `${category?.color ?? colors.muted}22` }]}> 
             <IconSymbol name={(category?.icon as any) || 'more-horiz'} size={20} color={category?.color ?? colors.muted} />

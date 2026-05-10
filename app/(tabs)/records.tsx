@@ -329,14 +329,6 @@ export default function RecordsScreen() {
               <IconSymbol name="plus.circle.fill" size={18} color={colors.primary} />
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.importBills}</Text>
             </Pressable>
-            <Pressable onPress={handleExportJSON} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <IconSymbol name="note.text" size={16} color={colors.foreground} />
-              <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.exportJSON}</Text>
-            </Pressable>
-            <Pressable onPress={handleImportJSON} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <IconSymbol name="arrow.left" size={16} color={colors.foreground} />
-              <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.importJSON || 'Import JSON'}</Text>
-            </Pressable>
             <Pressable onPress={() => setTransferMenuVisible(false)} style={[styles.secondaryBtn, { borderColor: colors.border }]}> 
               <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>{i18n.common.cancel}</Text>
             </Pressable>
