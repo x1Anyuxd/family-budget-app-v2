@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -59,29 +59,6 @@ export function SwipeDeleteRow({
     );
   };
 
-  // For web platform, show action buttons inline
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.webContainer}>
-        <View style={{ flex: 1 }}>{children}</View>
-        {mergedRightActions.length > 0 && (
-          <View style={styles.webActionsWrap}>
-            {mergedRightActions.map((action) => (
-              <Pressable
-                key={action.key}
-                onPress={action.onPress}
-                style={[styles.webActionButton, { backgroundColor: action.color }]}
-              >
-                <IconSymbol name={action.icon as any} size={14} color="#fff" />
-                <Text style={styles.webActionText}>{action.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  }
-
   return (
     <Swipeable
       overshootLeft={false}
@@ -108,30 +85,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
-  },
-  webContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  webActionsWrap: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 8,
-  },
-  webActionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    minWidth: 60,
-  },
-  webActionText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
   },
 });
