@@ -17,6 +17,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColors } from '@/hooks/use-colors';
 import { useBudget } from '@/lib/budget-context';
 import { exportLocalBills, importLocalBills } from '@/lib/bill-transfer';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { getI18n } from '@/lib/i18n';
 import {
   Transaction,
@@ -141,6 +143,30 @@ export default function RecordsScreen() {
     const success = await exportLocalBills(getExportPayload());
     Alert.alert(success ? i18n.common.success : i18n.common.warning, success ? i18n.records.exportSuccess : i18n.records.exportFailed);
   }, [getExportPayload, i18n.common.success, i18n.common.warning, i18n.records.exportFailed, i18n.records.exportSuccess]);
+
+  const handleExportJSON = useCallback(async () => {
+    setTransferMenuVisible(false);
+    try {
+      const payload = getExportPayload();
+      const jsonString = JSON.stringify(payload, null, 2);
+      const docDir = (FileSystem as any).documentDirectory || '';
+      const timestamp = new Date().toISOString().split('T')[0];
+      const fileName = `family-budget-${timestamp}.json`;
+      const filePath = `${docDir}${fileName}`;
+      await FileSystem.writeAsStringAsync(filePath, jsonString);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: 'application/json',
+          dialogTitle: i18n.records.exportJSON,
+        });
+        Alert.alert(i18n.common.success, i18n.records.exportSuccess);
+      } else {
+        Alert.alert(i18n.common.success, `${i18n.records.exportSuccess}\n${filePath}`);
+      }
+    } catch (error) {
+      Alert.alert(i18n.common.warning, i18n.records.exportFailed);
+    }
+  }, [getExportPayload, i18n.common.success, i18n.common.warning, i18n.records.exportFailed, i18n.records.exportSuccess, i18n.records.exportJSON]);
 
   const handleImportBills = useCallback(async () => {
     setTransferMenuVisible(false);
@@ -272,6 +298,10 @@ export default function RecordsScreen() {
             <Pressable onPress={handleImportBills} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <IconSymbol name="plus.circle.fill" size={18} color={colors.primary} />
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.importBills}</Text>
+            </Pressable>
+            <Pressable onPress={handleExportJSON} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <IconSymbol name="arrow.down.doc" size={18} color={colors.primary} />
+              <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.exportJSON}</Text>
             </Pressable>
             <Pressable onPress={() => setTransferMenuVisible(false)} style={[styles.secondaryBtn, { borderColor: colors.border }]}> 
               <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>{i18n.common.cancel}</Text>
