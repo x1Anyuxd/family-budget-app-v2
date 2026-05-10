@@ -178,56 +178,6 @@ export default function BudgetScreen() {
         </View>
 
         <View style={styles.listWrap}>
-          {/* Total Expenses Card */}
-          {budgetCards.length > 0 && (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.cardHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}20` }]}>
-                  <IconSymbol name="attach-money" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.cardTitleContainer}>
-                  <Text style={[styles.categoryName, { color: colors.foreground }]}>
-                    {settings.locale === 'en' ? 'Total' : '总计'}
-                  </Text>
-                  <Text style={[styles.budgetInfo, { color: colors.muted }]}>
-                    {i18n.budget.spent}: ¥{formatAmount(summary.totalSpent)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { backgroundColor: colors.background }]}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: summary.totalBudget > 0 ? `${Math.min((summary.totalSpent / summary.totalBudget) * 100, 100)}%` : '0%',
-                        backgroundColor: summary.totalSpent > summary.totalBudget ? colors.error : colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-                <View style={styles.amountRow}>
-                  <Text style={[styles.amountLabel, { color: colors.muted }]}>
-                    {i18n.budget.setBudget}: <Text style={{ color: colors.foreground, fontWeight: '600' }}>¥{formatAmount(summary.totalBudget)}</Text>
-                  </Text>
-                  <Text style={[styles.amountLabel, { color: colors.muted }]}>
-                    {i18n.budget.remaining}:{' '}
-                    <Text style={{ color: summary.totalSpent > summary.totalBudget ? colors.error : colors.success, fontWeight: '600' }}>
-                      ¥{formatAmount(summary.remaining)}
-                    </Text>
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.cardFooter}>
-                <View style={[styles.badge, { backgroundColor: summary.totalSpent > summary.totalBudget ? `${colors.error}20` : `${colors.success}20` }]}>
-                  <Text style={[styles.badgeText, { color: summary.totalSpent > summary.totalBudget ? colors.error : colors.success }]}>
-                    {summary.totalBudget > 0 ? `${Math.round(Math.min((summary.totalSpent / summary.totalBudget) * 100, 100))}%` : '0%'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
           {budgetCards.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
               <IconSymbol name="credit-card" size={36} color={colors.primary} />
