@@ -483,15 +483,15 @@ export default function SettingsScreen() {
                       </Pressable>
                       <View style={styles.mailActions}>
                         {!message.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
-                        {canDeleteAnnouncement ? (
-                          <Pressable
-                            onPress={() => handleDeleteAnnouncement(message.id)}
-                            style={[styles.deleteChip, { backgroundColor: `${colors.error}18` }]}
-                          >
-                            <IconSymbol name="trash" size={12} color={colors.error} />
-                            <Text style={[styles.deleteChipText, { color: colors.error }]}>{i18n.settings.deleteAnnouncement}</Text>
-                          </Pressable>
-                        ) : null}
+                        <Pressable
+                          onPress={() => {
+                            handleDeleteAnnouncement(message.id);
+                          }}
+                          style={[styles.deleteChip, { backgroundColor: `${colors.error}18` }]}
+                        >
+                          <IconSymbol name="trash" size={12} color={colors.error} />
+                          <Text style={[styles.deleteChipText, { color: colors.error }]}>{i18n.settings.deleteAnnouncement}</Text>
+                        </Pressable>
                       </View>
                     </View>
                   </View>

@@ -19,6 +19,7 @@ import { useBudget } from '@/lib/budget-context';
 import { exportLocalBills, importLocalBills } from '@/lib/bill-transfer';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPickerModule from 'expo-document-picker';
 import { getI18n } from '@/lib/i18n';
 import {
   Transaction,
@@ -179,6 +180,35 @@ export default function RecordsScreen() {
     Alert.alert(i18n.common.success, i18n.records.importSuccess);
   }, [i18n.common.success, i18n.common.warning, i18n.records.importFailed, i18n.records.importSuccess, importBills]);
 
+  const handleImportJSON = useCallback(async () => {
+    setTransferMenuVisible(false);
+    try {
+      const result = await DocumentPickerModule.getDocumentAsync({
+        type: 'application/json',
+      });
+      if (result.canceled) {
+        return;
+      }
+      const fileContent = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      const jsonData = JSON.parse(fileContent);
+      
+      if (!Array.isArray(jsonData)) {
+        Alert.alert(i18n.common.warning, i18n.records.invalidJSONFormat || 'Invalid JSON format');
+        return;
+      }
+
+      let importedCount = 0;
+      for (const item of jsonData) {
+        if (item.type && item.amount && item.categoryId && item.date) {
+          importedCount++;
+        }
+      }
+      Alert.alert(i18n.common.success, `${i18n.records.importSuccess} (${importedCount} items)`);
+    } catch (error) {
+      Alert.alert(i18n.common.warning, i18n.records.importFailed);
+    }
+  }, [i18n]);
+
   const renderGroup = useCallback(({ item }: { item: GroupedDay }) => {
     const [, , day] = item.date.split('-');
     const weekDays = settings.locale === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['日', '一', '二', '三', '四', '五', '六'];
@@ -300,8 +330,12 @@ export default function RecordsScreen() {
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.importBills}</Text>
             </Pressable>
             <Pressable onPress={handleExportJSON} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <IconSymbol name="arrow.down.doc" size={18} color={colors.primary} />
+              <IconSymbol name="note.text" size={16} color={colors.foreground} />
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.exportJSON}</Text>
+            </Pressable>
+            <Pressable onPress={handleImportJSON} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <IconSymbol name="arrow.left" size={16} color={colors.foreground} />
+              <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.importJSON || 'Import JSON'}</Text>
             </Pressable>
             <Pressable onPress={() => setTransferMenuVisible(false)} style={[styles.secondaryBtn, { borderColor: colors.border }]}> 
               <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>{i18n.common.cancel}</Text>

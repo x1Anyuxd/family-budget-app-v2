@@ -72,6 +72,9 @@ export const translations = {
       exportSuccess: '本地账单已导出',
       exportFailed: '本地账单导出失败',
       emptyExport: '暂无记录可导出',
+      importJSON: '导入JSON格式',
+      invalidJSONFormat: '无效的JSON格式',
+      transactions: '笔记录',
     },
     statistics: {
       title: '统计',
@@ -265,6 +268,9 @@ export const translations = {
       exportSuccess: 'Local bills exported successfully',
       exportFailed: 'Failed to export local bills',
       emptyExport: 'No records available to export',
+      importJSON: 'Import as JSON',
+      invalidJSONFormat: 'Invalid JSON format',
+      transactions: 'transactions',
     },
     statistics: {
       title: 'Statistics',

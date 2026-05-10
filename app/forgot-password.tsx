@@ -31,7 +31,7 @@ export default function ForgotPasswordScreen() {
 
   const handleVerify = async () => {
     if (!username.trim() || !displayName.trim()) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.verifyError || '请输入账号和姓名');
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.verifyError || (settings.locale === 'en' ? 'Please enter account and name' : '请输入账号和姓名'));
       return;
     }
 
@@ -42,7 +42,7 @@ export default function ForgotPasswordScreen() {
     );
 
     if (!user) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.notFound || '账号或姓名不匹配');
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.notFound || (settings.locale === 'en' ? 'Account or name does not match' : '账号或姓名不匹配'));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
@@ -54,7 +54,7 @@ export default function ForgotPasswordScreen() {
 
   const handleReset = async () => {
     if (!newPassword.trim()) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordEmpty || '新密码不能为空');
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordEmpty || (settings.locale === 'en' ? 'New password cannot be empty' : '新密码不能为空'));
       return;
     }
 
@@ -64,7 +64,7 @@ export default function ForgotPasswordScreen() {
     }
 
     if (newPassword.length < 6) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordTooShort || '密码长度至少6位');
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordTooShort || (settings.locale === 'en' ? 'Password must be at least 6 characters' : '密码长度至少6位'));
       return;
     }
 
@@ -75,7 +75,7 @@ export default function ForgotPasswordScreen() {
 
       // 这里应该调用更新密码的函数
       // 由于这是本地存储，我们需要在 budget-context 中添加相应的函数
-      Alert.alert(i18n.common.success, i18n.forgotPassword?.resetSuccess || '密码重置成功，请重新登录');
+      Alert.alert(i18n.common.success, i18n.forgotPassword?.resetSuccess || (settings.locale === 'en' ? 'Password reset successfully, please login again' : '密码重置成功，请重新登录'));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (error) {

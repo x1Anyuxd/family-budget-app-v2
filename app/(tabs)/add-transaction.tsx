@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
@@ -18,6 +19,7 @@ import { takePhoto, pickImageFromLibrary, ensureBase64 } from '@/lib/camera-serv
 import { trpc } from '@/lib/trpc';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
+
 function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -36,6 +38,19 @@ export default function AddTransactionScreen() {
   const [note, setNote] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // 每次页面获得焦点时清空表单数据
+  useFocusEffect(
+    useCallback(() => {
+      setType('expense');
+      setAmount('');
+      setSelectedCat('food');
+      setDate(todayStr());
+      setNote('');
+      setIsAnalyzing(false);
+      setShowDatePicker(false);
+    }, [])
+  );
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   const recentTransactions = getRecentTransactions(4);
