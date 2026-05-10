@@ -21,6 +21,7 @@ import { pickImageFromLibrary } from '@/lib/camera-service';
 import { useThemeContext } from '@/lib/theme-provider';
 import { THEME_LABELS, THEME_NAMES } from '@/lib/themes';
 import type { Gender } from '@/lib/types';
+import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -255,6 +256,17 @@ export default function SettingsScreen() {
                     {authMode === 'login' ? i18n.settings.login : i18n.settings.register}
                   </Text>
                 </Pressable>
+                {authMode === 'login' && (
+                  <Pressable
+                    onPress={() => {
+                      const router = useRouter();
+                      router.push('/forgot-password');
+                    }}
+                    style={styles.forgotPasswordButton}
+                  >
+                    <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>Forgot Password?</Text>
+                  </Pressable>
+                )}
               </>
             )}
           </View>
@@ -692,6 +704,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  forgotPasswordButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   deleteChip: {
     borderRadius: 999,
