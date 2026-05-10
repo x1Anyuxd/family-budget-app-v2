@@ -59,6 +59,8 @@ export default function HomeScreen() {
     getMonthSummary,
     publishAnnouncement,
     deleteTransaction,
+    markMessageRead,
+    deleteMessage,
   } = useBudget();
   const i18n = getI18n(settings.locale);
 
@@ -66,6 +68,7 @@ export default function HomeScreen() {
   const [showAdminSheet, setShowAdminSheet] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showMemberBillsModal, setShowMemberBillsModal] = useState(false);
+  const [showInboxModal, setShowInboxModal] = useState(false);
   const [announcementText, setAnnouncementText] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
@@ -155,7 +158,7 @@ export default function HomeScreen() {
             <Text style={styles.headerTitle}>{i18n.home.title}</Text>
             <View style={styles.headerRightActions}>
               <Pressable
-                onPress={() => router.push('/(tabs)/settings' as any)}
+                onPress={() => setShowInboxModal(true)}
                 style={({ pressed }) => [styles.inboxBtn, pressed && { opacity: 0.75 }]}
               >
                 <IconSymbol name="mail" size={22} color="#fff" />
@@ -334,6 +337,59 @@ export default function HomeScreen() {
                 </View>
               ) : (
                 selectedMemberTransactions.map((item) => renderTransaction(item))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={showInboxModal} transparent animationType="slide" onRequestClose={() => setShowInboxModal(false)}>
+        <View style={styles.modalMask}>
+          <View style={[styles.inboxModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.inboxModalHeader}>
+              <Text style={[styles.inboxModalTitle, { color: colors.foreground }]}>{i18n.settings.inbox}</Text>
+              <Pressable onPress={() => setShowInboxModal(false)} style={({ pressed }) => [pressed && { opacity: 0.6 }]}>  
+                <IconSymbol name="xmark" size={24} color={colors.foreground} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.inboxModalContent}>
+              {inboxMessages.length === 0 ? (
+                <Text style={[styles.itemSubtitle, { color: colors.muted }]}>{i18n.settings.noMessages}</Text>
+              ) : (
+                inboxMessages.map((message) => {
+                  const canDeleteAnnouncement = Boolean(
+                    currentUser?.isAdmin &&
+                    message.type === 'announcement' &&
+                    message.senderId === currentUser?.id,
+                  );
+                  return (
+                    <View
+                      key={message.id}
+                      style={[styles.mailItem, { borderColor: colors.border, backgroundColor: message.isRead ? colors.surface : colors.background }]}
+                    >
+                      <View style={styles.rowBetween}>
+                        <Pressable onPress={() => markMessageRead(message.id)} style={styles.mailContentPressable}>
+                          <Text style={[styles.itemTitle, { color: colors.foreground, flex: 1 }]}>{message.title}</Text>
+                          <Text style={[styles.itemSubtitle, { color: colors.foreground, marginTop: 6 }]}>{message.content}</Text>
+                          <Text style={[styles.mailMeta, { color: colors.muted }]}>{new Date(message.createdAt).toLocaleString()}</Text>
+                        </Pressable>
+                        <View style={styles.mailActions}>
+                          {!message.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+                          {canDeleteAnnouncement && (
+                            <Pressable
+                              onPress={() => {
+                                deleteMessage(message.id);
+                              }}
+                              style={[styles.deleteChip, { backgroundColor: `${colors.error}18` }]}
+                            >
+                              <IconSymbol name="trash" size={12} color={colors.error} />
+                              <Text style={[styles.deleteChipText, { color: colors.error }]}>{i18n.settings.deleteAnnouncement}</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })
               )}
             </ScrollView>
           </View>
@@ -661,5 +717,77 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
+  },
+  inboxModalCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    maxHeight: '80%',
+    paddingTop: 16,
+  },
+  inboxModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  inboxModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  inboxModalContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  mailItem: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  mailContentPressable: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  itemSubtitle: {
+    fontSize: 13,
+  },
+  mailMeta: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  mailActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  deleteChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  deleteChipText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
