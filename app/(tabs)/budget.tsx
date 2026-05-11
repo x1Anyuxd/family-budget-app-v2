@@ -22,6 +22,7 @@ import {
   formatMonthLabel,
   getCurrentMonth,
 } from '@/lib/types';
+import { getCategoryName } from '@/lib/i18n-categories';
 
 function prevMonth(month: string): string {
   const [year, m] = month.split('-').map(Number);
@@ -208,7 +209,7 @@ export default function BudgetScreen() {
                         <IconSymbol name={item.category.icon as any} size={20} color={item.category.color} />
                       </View>
                       <View style={styles.cardTitleContainer}>
-                        <Text style={[styles.categoryName, { color: colors.foreground }]}>{item.category.name}</Text>
+                        <Text style={[styles.categoryName, { color: colors.foreground }]}>{getCategoryName(item.category.id, settings.locale)}</Text>
                         <Text style={[styles.budgetInfo, { color: colors.muted }]}>
                           {i18n.budget.setBudget}: ¥{formatAmount(item.budget.amount)}
                         </Text>
@@ -281,7 +282,7 @@ export default function BudgetScreen() {
                   <View style={[styles.optionIcon, { backgroundColor: `${category.color}20` }]}> 
                     <IconSymbol name={category.icon as any} size={18} color={category.color} />
                   </View>
-                  <Text style={[styles.optionText, { color: colors.foreground }]}>{category.name}</Text>
+                  <Text style={[styles.optionText, { color: colors.foreground }]}>{getCategoryName(category.id, settings.locale)}</Text>
                 </Pressable>
               ))}
             </ScrollView>

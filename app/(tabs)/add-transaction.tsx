@@ -15,6 +15,7 @@ import { getI18n } from '@/lib/i18n';
 import {
   TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, Category, formatAmount, getCategoryById,
 } from '@/lib/types';
+import { getCategoryName } from '@/lib/i18n-categories';
 import { takePhoto, pickImageFromLibrary, ensureBase64 } from '@/lib/camera-service';
 import { trpc } from '@/lib/trpc';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -28,7 +29,7 @@ function todayStr(): string {
 export default function AddTransactionScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { addTransaction, deleteTransaction, getRecentTransactions, settings } = useBudget();
+  const { settings, addTransaction, deleteTransaction, getRecentTransactions } = useBudget();
   const i18n = getI18n(settings.locale);
 
   const [type, setType] = useState<TransactionType>('expense');
@@ -272,7 +273,7 @@ export default function AddTransactionScreen() {
                 <View style={[styles.catIconWrap, { backgroundColor: `${cat.color}22` }]}> 
                   <IconSymbol name={cat.icon as any} size={22} color={cat.color} />
                 </View>
-                <Text style={[styles.catName, { color: selectedCat === cat.id ? cat.color : colors.foreground }]}>{cat.name}</Text>
+                <Text style={[styles.catName, { color: selectedCat === cat.id ? cat.color : colors.foreground }]}>{getCategoryName(cat.id, settings.locale)}</Text>
               </Pressable>
             ))}
           </View>

@@ -20,11 +20,13 @@ import { getI18n } from '@/lib/i18n';
 import { pickImageFromLibrary } from '@/lib/camera-service';
 import { useThemeContext } from '@/lib/theme-provider';
 import { THEME_LABELS, THEME_NAMES } from '@/lib/themes';
+import { getThemeName } from '@/lib/i18n-categories';
 import type { Gender } from '@/lib/types';
 import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const router = useRouter();
   const {
     currentUser,
     settings,
@@ -262,7 +264,6 @@ export default function SettingsScreen() {
                 {authMode === 'login' && (
                   <Pressable
                     onPress={() => {
-                      const router = useRouter();
                       router.push('/forgot-password');
                     }}
                     style={styles.forgotPasswordButton}
@@ -447,7 +448,7 @@ export default function SettingsScreen() {
                     ]}
                   >
                     <View style={[styles.colorDot, { backgroundColor: themeName === 'default' ? '#4CAF82' : themeName === 'blue' ? '#3B82F6' : themeName === 'purple' ? '#8B5CF6' : themeName === 'orange' ? '#F97316' : themeName === 'pink' ? '#EC4899' : '#14B8A6' }]} />
-                    <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 12 }}>{THEME_LABELS[themeName]}</Text>
+                    <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 12 }}>{getThemeName(themeName, settings.locale)}</Text>
                   </Pressable>
                 );
               })}
