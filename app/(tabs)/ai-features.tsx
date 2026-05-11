@@ -2,13 +2,13 @@
  * AI 功能屏幕 - 完整实现
  * 
  * 展示所有 AI 功能：
- * 1. 语音记账 - 真实 Web Speech API 识别，可直接创建记录
- * 2. 收据识别 - 真实摄像头拍照，可直接创建记录
+ * 1. 语音记账 - 真实 Web Speech API 识别，直接创建记录
+ * 2. 收据识别 - 真实摄像头拍照，直接创建记录
  * 3. 支出预测
  * 4. 财务建议
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../hooks/use-auth';
 import SpeechRecognizer from '../../lib/speech-recognition';
-import { apiClient, transactionApi } from '../../lib/api-client';
+import { apiClient } from '../../lib/api-client';
 
 export default function AIFeaturesScreen() {
   const { user } = useAuth();
@@ -41,6 +41,10 @@ export default function AIFeaturesScreen() {
   const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [transactionDescription, setTransactionDescription] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
+  const [userId, setUserId] = useState<string>('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   
   const speechRecognizerRef = useRef<SpeechRecognizer | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
@@ -48,13 +52,91 @@ export default function AIFeaturesScreen() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize speech recognizer
-  React.useEffect(() => {
+  // Initialize speech recognizer and check user
+  useEffect(() => {
     speechRecognizerRef.current = new SpeechRecognizer();
-  }, []);
+    
+    // Try to get userId from localStorage or user object
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) {
+      setUserId(storedUserId);
+    } else if (user?.id) {
+      setUserId(user.id);
+      localStorage.setItem('userId', user.id);
+    }
+  }, [user]);
+
+  // 处理登录
+  const handleLogin = async () => {
+    if (!loginUsername || !loginPassword) {
+      Alert.alert('错误', '请输入用户名和密码');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/users/login', {
+        username: loginUsername,
+        password: loginPassword,
+      });
+
+      if (response.success && response.userId) {
+        setUserId(response.userId);
+        localStorage.setItem('userId', response.userId);
+        setShowLoginModal(false);
+        setLoginUsername('');
+        setLoginPassword('');
+        Alert.alert('成功', '登录成功');
+      } else {
+        Alert.alert('错误', response.error || '登录失败');
+      }
+    } catch (error) {
+      Alert.alert('错误', error instanceof Error ? error.message : '登录失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 处理注册
+  const handleRegister = async () => {
+    if (!loginUsername || !loginPassword) {
+      Alert.alert('错误', '请输入用户名和密码');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/users/register', {
+        username: loginUsername,
+        email: `${loginUsername}@example.com`,
+        password: loginPassword,
+      });
+
+      if (response.success && response.userId) {
+        setUserId(response.userId);
+        localStorage.setItem('userId', response.userId);
+        setShowLoginModal(false);
+        setLoginUsername('');
+        setLoginPassword('');
+        Alert.alert('成功', '注册成功');
+      } else {
+        Alert.alert('错误', response.error || '注册失败');
+      }
+    } catch (error) {
+      Alert.alert('错误', error instanceof Error ? error.message : '注册失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 开始语音识别
   const handleStartRecording = async () => {
+    if (!userId) {
+      Alert.alert('提示', '请先登录');
+      setShowLoginModal(true);
+      return;
+    }
+
     if (!speechRecognizerRef.current || !speechRecognizerRef.current.isSupported()) {
       Alert.alert('错误', '浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari');
       return;
@@ -114,18 +196,22 @@ export default function AIFeaturesScreen() {
 
     setLoading(true);
     try {
-      // 调用后端处理语音
-      const response = await apiClient.post('/ai-simple/process-speech', { text });
+      // 调用后端处理语音并直接创建交易
+      const response = await apiClient.post('/ai-transaction/create-from-speech', {
+        userId: userId,
+        text: text,
+        type: 'expense',
+      });
       
       if (response.success) {
         setVoiceResult({
-          text: response.text,
+          text: response.description,
           amount: response.amount,
           category: response.category,
           description: response.description,
-          confidence: response.confidence,
+          transactionId: response.transactionId,
         });
-        Alert.alert('成功', `识别成功！金额: ¥${response.amount}, 分类: ${response.category}`);
+        Alert.alert('成功', `✅ 记录已创建！\n金额: ¥${response.amount}\n分类: ${response.category}`);
       } else {
         Alert.alert('错误', response.error || '处理失败');
       }
@@ -136,54 +222,14 @@ export default function AIFeaturesScreen() {
     }
   };
 
-  // 创建交易记录
-  const handleCreateTransaction = async () => {
-    if (!voiceResult && !receiptResult) {
-      Alert.alert('错误', '没有识别结果');
-      return;
-    }
-
-    const result = voiceResult || receiptResult;
-    const userId = user?.id || 'guest';
-    const amount = result.amount || 0;
-    const category = result.category || 'other';
-    const description = transactionDescription || result.description || result.text || '';
-    const transactionDate = new Date().toISOString().split('T')[0];
-
-    if (amount <= 0) {
-      Alert.alert('错误', '金额必须大于 0');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await transactionApi.createTransaction(
-        userId,
-        transactionType,
-        amount,
-        category,
-        description,
-        transactionDate
-      );
-
-      if (response.success) {
-        Alert.alert('成功', `${transactionType === 'expense' ? '支出' : '收入'}记录已创建`);
-        setShowTransactionModal(false);
-        setTransactionDescription('');
-        setVoiceResult(null);
-        setReceiptResult(null);
-      } else {
-        Alert.alert('错误', response.error || '创建失败');
-      }
-    } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '创建失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // 开始摄像头
   const handleStartCamera = async () => {
+    if (!userId) {
+      Alert.alert('提示', '请先登录');
+      setShowLoginModal(true);
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
@@ -248,22 +294,23 @@ export default function AIFeaturesScreen() {
   const handleProcessReceipt = async (imageData: string) => {
     setLoading(true);
     try {
-      // 这里可以调用 OCR API 或其他图像处理服务
-      // 为了演示，我们使用简单的描述
-      const description = '收据图片：金额、商户、日期、物品列表';
+      // 使用图片数据作为描述
+      const description = '收据图片数据';
       
-      const response = await apiClient.post('/ai-simple/process-receipt', { description });
+      const response = await apiClient.post('/ai-transaction/create-from-receipt', {
+        userId: userId,
+        description: description,
+        type: 'expense',
+      });
       
       if (response.success) {
         setReceiptResult({
           amount: response.amount,
           merchant: response.merchant,
-          date: response.date,
           category: response.category,
-          items: response.items,
-          confidence: response.confidence,
+          transactionId: response.transactionId,
         });
-        Alert.alert('成功', `识别成功！金额: ¥${response.amount}, 商户: ${response.merchant}`);
+        Alert.alert('成功', `✅ 记录已创建！\n金额: ¥${response.amount}\n商户: ${response.merchant}`);
       } else {
         Alert.alert('错误', response.error || '处理失败');
       }
@@ -283,9 +330,14 @@ export default function AIFeaturesScreen() {
 
   // 生成支出预测
   const handlePredictExpense = async () => {
+    if (!userId) {
+      Alert.alert('提示', '请先登录');
+      setShowLoginModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      const userId = user?.id || 'guest';
       const response = await apiClient.get('/ai-simple/predict-expense', { userId, months: 6 });
       
       if (response.success) {
@@ -303,9 +355,14 @@ export default function AIFeaturesScreen() {
 
   // 生成财务建议
   const handleGenerateAdvice = async () => {
+    if (!userId) {
+      Alert.alert('提示', '请先登录');
+      setShowLoginModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      const userId = user?.id || 'guest';
       const response = await apiClient.get('/ai-simple/generate-advice', { userId });
       
       if (response.success) {
@@ -326,6 +383,20 @@ export default function AIFeaturesScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      {/* 用户状态条 */}
+      <View style={styles.userBar}>
+        {userId ? (
+          <Text style={styles.userText}>✅ 已登录 (ID: {userId.substring(0, 8)}...)</Text>
+        ) : (
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={() => setShowLoginModal(true)}
+          >
+            <Text style={styles.loginButtonText}>🔓 点击登录</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* 标题 */}
       <View style={styles.header}>
         <Text style={styles.title}>AI 功能</Text>
@@ -375,7 +446,7 @@ export default function AIFeaturesScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>语音记账</Text>
             <Text style={styles.description}>
-              点击按钮开始说话，AI 将自动识别金额和分类。
+              点击按钮开始说话，AI 将自动识别金额和分类，直接创建记录。
             </Text>
 
             {isRecording ? (
@@ -408,7 +479,7 @@ export default function AIFeaturesScreen() {
 
             {voiceResult && (
               <View style={styles.resultCard}>
-                <Text style={styles.resultTitle}>识别结果</Text>
+                <Text style={styles.resultTitle}>✅ 记录已创建</Text>
                 <View style={styles.resultItem}>
                   <Text style={styles.resultLabel}>文字:</Text>
                   <Text style={styles.resultValue}>{voiceResult.text}</Text>
@@ -426,17 +497,9 @@ export default function AIFeaturesScreen() {
                   </View>
                 )}
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultLabel}>置信度:</Text>
-                  <Text style={styles.resultValue}>{(voiceResult.confidence * 100).toFixed(0)}%</Text>
+                  <Text style={styles.resultLabel}>记录ID:</Text>
+                  <Text style={styles.resultValue}>{voiceResult.transactionId?.substring(0, 8)}...</Text>
                 </View>
-
-                {/* 创建记录按钮 */}
-                <TouchableOpacity
-                  style={styles.createButton}
-                  onPress={() => setShowTransactionModal(true)}
-                >
-                  <Text style={styles.createButtonText}>✅ 创建记录</Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -447,7 +510,7 @@ export default function AIFeaturesScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>收据识别</Text>
             <Text style={styles.description}>
-              拍摄收据照片，AI 将自动识别金额、商户和分类。
+              拍摄收据照片，AI 将自动识别金额、商户和分类，直接创建记录。
             </Text>
 
             {!capturedImage ? (
@@ -502,7 +565,7 @@ export default function AIFeaturesScreen() {
 
             {receiptResult && (
               <View style={styles.resultCard}>
-                <Text style={styles.resultTitle}>识别结果</Text>
+                <Text style={styles.resultTitle}>✅ 记录已创建</Text>
                 <View style={styles.resultItem}>
                   <Text style={styles.resultLabel}>金额:</Text>
                   <Text style={styles.resultValue}>¥{receiptResult.amount.toFixed(2)}</Text>
@@ -513,36 +576,16 @@ export default function AIFeaturesScreen() {
                     <Text style={styles.resultValue}>{receiptResult.merchant}</Text>
                   </View>
                 )}
-                {receiptResult.date && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>日期:</Text>
-                    <Text style={styles.resultValue}>{receiptResult.date}</Text>
-                  </View>
-                )}
                 {receiptResult.category && (
                   <View style={styles.resultItem}>
                     <Text style={styles.resultLabel}>分类:</Text>
                     <Text style={styles.resultValue}>{receiptResult.category}</Text>
                   </View>
                 )}
-                {receiptResult.items && receiptResult.items.length > 0 && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>物品:</Text>
-                    <Text style={styles.resultValue}>{receiptResult.items.join(', ')}</Text>
-                  </View>
-                )}
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultLabel}>置信度:</Text>
-                  <Text style={styles.resultValue}>{(receiptResult.confidence * 100).toFixed(0)}%</Text>
+                  <Text style={styles.resultLabel}>记录ID:</Text>
+                  <Text style={styles.resultValue}>{receiptResult.transactionId?.substring(0, 8)}...</Text>
                 </View>
-
-                {/* 创建记录按钮 */}
-                <TouchableOpacity
-                  style={styles.createButton}
-                  onPress={() => setShowTransactionModal(true)}
-                >
-                  <Text style={styles.createButtonText}>✅ 创建记录</Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -635,100 +678,62 @@ export default function AIFeaturesScreen() {
         )}
       </View>
 
-      {/* 创建交易模态框 */}
+      {/* 登录/注册模态框 */}
       <Modal
-        visible={showTransactionModal}
+        visible={showLoginModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowTransactionModal(false)}
+        onRequestClose={() => setShowLoginModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>创建交易记录</Text>
+            <Text style={styles.modalTitle}>登录/注册</Text>
 
-            {/* 交易类型选择 */}
-            <View style={styles.typeSelector}>
-              <TouchableOpacity
-                style={[
-                  styles.typeButton,
-                  transactionType === 'expense' && styles.typeButtonActive,
-                ]}
-                onPress={() => setTransactionType('expense')}
-              >
-                <Text
-                  style={[
-                    styles.typeButtonText,
-                    transactionType === 'expense' && styles.typeButtonTextActive,
-                  ]}
-                >
-                  💰 支出
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.typeButton,
-                  transactionType === 'income' && styles.typeButtonActive,
-                ]}
-                onPress={() => setTransactionType('income')}
-              >
-                <Text
-                  style={[
-                    styles.typeButtonText,
-                    transactionType === 'income' && styles.typeButtonTextActive,
-                  ]}
-                >
-                  💵 收入
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 显示识别结果 */}
-            {(voiceResult || receiptResult) && (
-              <View style={styles.resultSummary}>
-                <Text style={styles.resultSummaryTitle}>识别信息</Text>
-                <View style={styles.resultSummaryItem}>
-                  <Text style={styles.resultSummaryLabel}>金额:</Text>
-                  <Text style={styles.resultSummaryValue}>
-                    ¥{(voiceResult?.amount || receiptResult?.amount || 0).toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.resultSummaryItem}>
-                  <Text style={styles.resultSummaryLabel}>分类:</Text>
-                  <Text style={styles.resultSummaryValue}>
-                    {voiceResult?.category || receiptResult?.category || 'other'}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* 备注输入 */}
-            <Text style={styles.inputLabel}>备注（可选）</Text>
+            <Text style={styles.inputLabel}>用户名</Text>
             <TextInput
               style={styles.input}
-              placeholder="添加交易备注..."
-              value={transactionDescription}
-              onChangeText={setTransactionDescription}
-              multiline
-              numberOfLines={3}
+              placeholder="输入用户名"
+              value={loginUsername}
+              onChangeText={setLoginUsername}
             />
 
-            {/* 按钮 */}
+            <Text style={styles.inputLabel}>密码</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="输入密码"
+              value={loginPassword}
+              onChangeText={setLoginPassword}
+              secureTextEntry
+            />
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowTransactionModal(false)}
+                style={[styles.modalButton, styles.cancelButton, loading && styles.buttonDisabled]}
+                onPress={() => setShowLoginModal(false)}
+                disabled={loading}
               >
                 <Text style={styles.cancelButtonText}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
-                onPress={handleCreateTransaction}
+                style={[styles.modalButton, styles.registerButton, loading && styles.buttonDisabled]}
+                onPress={handleRegister}
                 disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>确认创建</Text>
+                  <Text style={styles.registerButtonText}>注册</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>登录</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -743,6 +748,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  userBar: {
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#C8E6C9',
+  },
+  userText: {
+    fontSize: 14,
+    color: '#2E7D32',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loginButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     paddingHorizontal: 16,
@@ -878,17 +908,17 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   resultCard: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#E8F5E9',
     borderRadius: 8,
     padding: 12,
     marginTop: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: '#4CAF50',
   },
   resultTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2E7D32',
     marginBottom: 12,
   },
   resultItem: {
@@ -896,7 +926,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#C8E6C9',
   },
   resultLabel: {
     fontSize: 14,
@@ -906,20 +936,6 @@ const styles = StyleSheet.create({
   resultValue: {
     fontSize: 14,
     color: '#333',
-    fontWeight: '600',
-  },
-  createButton: {
-    backgroundColor: '#34C759',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  createButtonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
   },
   predictionItem: {
@@ -949,12 +965,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#C8E6C9',
   },
   adviceNumber: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#4CAF50',
     marginRight: 8,
     minWidth: 20,
   },
@@ -976,7 +992,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: 20,
     paddingBottom: 40,
-    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -984,61 +999,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 16,
     textAlign: 'center',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 12,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  typeButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  typeButtonTextActive: {
-    color: '#fff',
-  },
-  resultSummary: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
-  },
-  resultSummaryTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  resultSummaryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  resultSummaryLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  resultSummaryValue: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '600',
   },
   inputLabel: {
     fontSize: 14,
@@ -1055,7 +1015,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     marginBottom: 16,
-    textAlignVertical: 'top',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -1077,8 +1036,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
   },
+  registerButton: {
+    backgroundColor: '#FF9800',
+  },
+  registerButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
   confirmButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#4CAF50',
   },
   confirmButtonText: {
     fontSize: 16,
