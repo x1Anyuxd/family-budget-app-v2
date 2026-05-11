@@ -299,6 +299,7 @@ export default function AddTransactionScreen() {
             recentTransactions.map((item) => {
               const category = getCategoryById(item.categoryId);
               const isIncome = item.type === 'income';
+              const categoryName = getCategoryName(item.categoryId, settings.locale);
               return (
                 <SwipeDeleteRow key={item.id} onDelete={() => deleteTransaction(item.id)}>
                   <View style={[styles.recentRow, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
@@ -306,7 +307,7 @@ export default function AddTransactionScreen() {
                       <IconSymbol name={(category?.icon as any) || 'more-horiz'} size={18} color={category?.color ?? colors.muted} />
                     </View>
                     <View style={styles.recentInfo}>
-                      <Text style={[styles.recentTitle, { color: colors.foreground }]}>{category?.name ?? '-'}</Text>
+                      <Text style={[styles.recentTitle, { color: colors.foreground }]}>{categoryName || '-'}</Text>
                       <Text style={[styles.recentNote, { color: colors.muted }]} numberOfLines={1}>{item.note || '--'}</Text>
                     </View>
                     <Text style={[styles.recentAmount, { color: isIncome ? colors.success : colors.error }]}> 
