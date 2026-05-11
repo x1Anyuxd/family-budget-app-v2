@@ -48,13 +48,7 @@ export default function AIFeaturesScreen() {
     },
   });
 
-  if (!user) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>请先登录</Text>
-      </View>
-    );
-  }
+  // AI 功能对所有用户开放（包括游客）
 
   const handleVoiceRecord = async () => {
     // 模拟语音识别
@@ -73,14 +67,16 @@ export default function AIFeaturesScreen() {
   };
 
   const handlePredictExpense = async () => {
-    const results = await predictExpense(user.id, 6);
+    const userId = user?.id || 'guest';
+    const results = await predictExpense(userId, 6);
     if (results) {
       setPredictions(results);
     }
   };
 
   const handleGenerateAdvice = async () => {
-    const result = await generateAdvice(user.id);
+    const userId = user?.id || 'guest';
+    const result = await generateAdvice(userId);
     if (result) {
       setAdvice(result);
     }
