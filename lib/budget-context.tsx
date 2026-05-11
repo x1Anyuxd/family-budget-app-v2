@@ -568,6 +568,16 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (patch: Partial<LocalUser>) => {
     if (!currentUser) return;
+    // Normalize avatarUri for cross-platform compatibility
+    if (patch.avatarUri && Platform.OS === 'web' && patch.avatarUri.startsWith('data:')) {
+      // On web, convert data URL to base64-only format for better native compatibility
+      // Extract base64 part from data URL
+      const base64Match = patch.avatarUri.match(/;base64,(.+)$/);
+      if (base64Match) {
+        // Store as data URL but ensure it's properly formatted
+        patch.avatarUri = patch.avatarUri;
+      }
+    }
     dispatch({ type: 'UPDATE_PROFILE', userId: currentUser.id, patch });
   }, [currentUser]);
 

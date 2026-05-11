@@ -282,7 +282,7 @@ export default function SettingsScreen() {
             <View style={styles.rowBetween}>
               <View style={styles.profileSummaryWrap}>
                 {currentUser?.avatarUri ? (
-                  <Image source={{ uri: currentUser.avatarUri }} style={styles.summaryAvatar} />
+                  <Image source={{ uri: currentUser.avatarUri }} style={styles.summaryAvatar} onError={() => console.warn('Failed to load avatar in settings:', currentUser.avatarUri)} />
                 ) : (
                   <View style={[styles.summaryAvatar, { backgroundColor: colors.background, borderColor: colors.border }]}> 
                     <IconSymbol name="person.crop.circle" size={34} color={colors.primary} />

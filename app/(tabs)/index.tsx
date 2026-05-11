@@ -186,6 +186,7 @@ export default function HomeScreen() {
               <Image
                 source={{ uri: currentUser.avatarUri }}
                 style={styles.avatarImage}
+                onError={() => console.warn('Failed to load avatar:', currentUser.avatarUri)}
               />
             ) : (
               <View style={styles.avatarCircle}>
