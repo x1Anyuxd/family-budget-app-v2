@@ -21,6 +21,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPickerModule from 'expo-document-picker';
 import { getI18n } from '@/lib/i18n';
+import { getCategoryName } from '@/lib/i18n-categories';
 import {
   Transaction,
   TransactionType,
@@ -234,6 +235,7 @@ export default function RecordsScreen() {
           {item.transactions.map((transaction, index) => {
             const category = getCategoryById(transaction.categoryId);
             const isIncome = transaction.type === 'income';
+            const categoryName = category ? getCategoryName(category.id, settings.locale) : '其他';
             return (
               <SwipeDeleteRow
                 key={transaction.id}
@@ -265,7 +267,7 @@ export default function RecordsScreen() {
                     <IconSymbol name={(category?.icon as any) || 'more-horiz'} size={20} color={category?.color ?? colors.muted} />
                   </View>
                   <View style={styles.txInfo}>
-                    <Text style={[styles.txCat, { color: colors.foreground }]}>{category?.name ?? '其他'}</Text>
+                    <Text style={[styles.txCat, { color: colors.foreground }]}>{categoryName}</Text>
                     {transaction.note ? (
                       <Text style={[styles.txNote, { color: colors.muted }]} numberOfLines={1}>{transaction.note}</Text>
                     ) : null}

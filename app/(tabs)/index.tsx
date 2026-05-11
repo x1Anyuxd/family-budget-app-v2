@@ -27,6 +27,7 @@ import {
   getCategoryById,
   getCurrentMonth,
 } from '@/lib/types';
+import { getCategoryName } from '@/lib/i18n-categories';
 
 function prevMonth(month: string): string {
   const [year, m] = month.split('-').map(Number);
@@ -104,6 +105,7 @@ export default function HomeScreen() {
   const renderTransaction = (item: Transaction) => {
     const category = getCategoryById(item.categoryId);
     const isIncome = item.type === 'income';
+    const categoryName = category ? getCategoryName(category.id, settings.locale) : '其他';
     return (
       <SwipeDeleteRow
         key={item.id}
@@ -134,7 +136,7 @@ export default function HomeScreen() {
             <IconSymbol name={(category?.icon as any) || 'more-horiz'} size={20} color={category?.color ?? colors.muted} />
           </View>
           <View style={styles.txInfo}>
-            <Text style={[styles.txCat, { color: colors.foreground }]}>{category?.name ?? '其他'}</Text>
+            <Text style={[styles.txCat, { color: colors.foreground }]}>{categoryName}</Text>
             <Text style={[styles.txNote, { color: colors.muted }]} numberOfLines={1}>
               {item.note || item.userName || '--'}
             </Text>
