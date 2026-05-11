@@ -26,7 +26,7 @@ import SpeechRecognizer from '../../lib/speech-recognition';
 import { apiClient } from '../../lib/api-client';
 
 export default function AIFeaturesScreen() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'voice' | 'receipt' | 'prediction' | 'advice'>('voice');
   const [voiceResult, setVoiceResult] = useState<any>(null);
   const [receiptResult, setReceiptResult] = useState<any>(null);
@@ -50,7 +50,27 @@ export default function AIFeaturesScreen() {
     speechRecognizerRef.current = new SpeechRecognizer();
   }, []);
 
+  // 调试：打印用户信息
+  useEffect(() => {
+    console.log('AI Features - Auth Status:', {
+      isAuthenticated,
+      user: user ? { id: user.id, username: user.username } : null,
+      authLoading,
+    });
+  }, [isAuthenticated, user, authLoading]);
+
   // 检查用户是否登录
+  if (authLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>正在加载...</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (!isAuthenticated || !user) {
     return (
       <View style={styles.container}>
@@ -58,6 +78,9 @@ export default function AIFeaturesScreen() {
           <Text style={styles.notAuthTitle}>🔐 需要登录</Text>
           <Text style={styles.notAuthText}>
             请先在主页登录账号，然后使用 AI 功能
+          </Text>
+          <Text style={styles.debugText}>
+            当前状态: isAuthenticated={String(isAuthenticated)}, user={user ? '有' : '无'}
           </Text>
         </View>
       </View>
@@ -91,7 +114,6 @@ export default function AIFeaturesScreen() {
       (text, isFinal) => {
         setTranscript(text);
         if (isFinal) {
-          // 自动处理最终结果
           handleProcessSpeech(text);
         }
       },
@@ -123,9 +145,15 @@ export default function AIFeaturesScreen() {
       return;
     }
 
+    if (!user?.id) {
+      Alert.alert('错误', '无法获取用户信息');
+      return;
+    }
+
     setLoading(true);
     try {
-      // 调用后端处理语音并直接创建交易
+      console.log('Processing speech with userId:', user.id);
+      
       const response = await apiClient.post('/ai-transaction/create-from-speech', {
         userId: user.id,
         text: text,
@@ -145,6 +173,7 @@ export default function AIFeaturesScreen() {
         Alert.alert('❌ 失败', response.error || '处理失败');
       }
     } catch (error) {
+      console.error('Speech processing error:', error);
       Alert.alert('❌ 错误', error instanceof Error ? error.message : '处理失败');
     } finally {
       setLoading(false);
@@ -165,7 +194,6 @@ export default function AIFeaturesScreen() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // 等待视频加载
         videoRef.current.onloadedmetadata = () => {
           videoRef.current?.play();
           setCameraReady(true);
@@ -187,25 +215,21 @@ export default function AIFeaturesScreen() {
       const context = canvasRef.current.getContext('2d');
       if (!context) return;
       
-      // 确保canvas尺寸与视频相同
       const video = videoRef.current;
       canvasRef.current.width = video.videoWidth || 640;
       canvasRef.current.height = video.videoHeight || 480;
       
-      // 绘制视频帧到canvas
       context.drawImage(video, 0, 0, canvasRef.current.width, canvasRef.current.height);
       
       const dataUrl = canvasRef.current.toDataURL('image/jpeg');
       setCapturedImage(dataUrl);
       
-      // 停止摄像头
       if (videoStreamRef.current) {
         videoStreamRef.current.getTracks().forEach(track => track.stop());
         videoStreamRef.current = null;
       }
       setCameraReady(false);
       
-      // 处理收据
       await handleProcessReceipt(dataUrl);
     } catch (err) {
       console.error('拍摄照片错误:', err);
@@ -215,6 +239,11 @@ export default function AIFeaturesScreen() {
 
   // 处理收据识别 - 直接创建交易
   const handleProcessReceipt = async (imageData: string) => {
+    if (!user?.id) {
+      Alert.alert('错误', '无法获取用户信息');
+      return;
+    }
+
     setLoading(true);
     try {
       const description = '收据图片数据';
@@ -237,6 +266,7 @@ export default function AIFeaturesScreen() {
         Alert.alert('❌ 失败', response.error || '处理失败');
       }
     } catch (error) {
+      console.error('Receipt processing error:', error);
       Alert.alert('❌ 错误', error instanceof Error ? error.message : '处理失败');
     } finally {
       setLoading(false);
@@ -252,6 +282,11 @@ export default function AIFeaturesScreen() {
 
   // 生成支出预测
   const handlePredictExpense = async () => {
+    if (!user?.id) {
+      Alert.alert('错误', '无法获取用户信息');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await apiClient.get('/ai-simple/predict-expense', { userId: user.id, months: 6 });
@@ -271,6 +306,11 @@ export default function AIFeaturesScreen() {
 
   // 生成财务建议
   const handleGenerateAdvice = async () => {
+    if (!user?.id) {
+      Alert.alert('错误', '无法获取用户信息');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await apiClient.get('/ai-simple/generate-advice', { userId: user.id });
@@ -563,6 +603,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
   notAuthContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -581,6 +631,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 12,
+    textAlign: 'center',
   },
   userBar: {
     backgroundColor: '#E8F5E9',
