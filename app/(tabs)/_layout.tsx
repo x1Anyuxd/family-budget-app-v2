@@ -71,13 +71,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="ai-features"
-        options={{
-          title: 'AI',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="sparkles" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="add-transaction"
         options={{ href: null }}
       />
