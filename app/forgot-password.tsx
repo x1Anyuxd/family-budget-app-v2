@@ -19,7 +19,8 @@ export default function ForgotPasswordScreen() {
   const colors = useColors();
   const router = useRouter();
   const { settings, state } = useBudget();
-  const i18n = getI18n(settings.locale);
+  const locale = settings?.locale ?? 'zh';
+  const i18n = getI18n(locale);
 
   const [step, setStep] = useState<'verify' | 'reset'>('verify');
   const [username, setUsername] = useState('');
@@ -31,7 +32,7 @@ export default function ForgotPasswordScreen() {
 
   const handleVerify = async () => {
     if (!username.trim() || !displayName.trim()) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.verifyError || (settings.locale === 'en' ? 'Please enter account and name' : '请输入账号和姓名'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.verifyError || (locale === 'en' ? 'Please enter account and name' : '请输入账号和姓名'));
       return;
     }
 
@@ -42,7 +43,7 @@ export default function ForgotPasswordScreen() {
     );
 
     if (!user) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.notFound || (settings.locale === 'en' ? 'Account or name does not match' : '账号或姓名不匹配'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.notFound || (locale === 'en' ? 'Account or name does not match' : '账号或姓名不匹配'));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
@@ -54,17 +55,17 @@ export default function ForgotPasswordScreen() {
 
   const handleReset = async () => {
     if (!newPassword.trim()) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordEmpty || (settings.locale === 'en' ? 'New password cannot be empty' : '新密码不能为空'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordEmpty || (locale === 'en' ? 'New password cannot be empty' : '新密码不能为空'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert(i18n.common.warning, i18n.messages?.passwordMismatch || (settings.locale === 'en' ? 'Passwords do not match' : '两次输入的密码不一致'));
+      Alert.alert(i18n.common.warning, i18n.messages?.passwordMismatch || (locale === 'en' ? 'Passwords do not match' : '两次输入的密码不一致'));
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordTooShort || (settings.locale === 'en' ? 'Password must be at least 6 characters' : '密码长度至少6位'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordTooShort || (locale === 'en' ? 'Password must be at least 6 characters' : '密码长度至少6位'));
       return;
     }
 
