@@ -32,7 +32,7 @@ export default function ForgotPasswordScreen() {
 
   const handleVerify = async () => {
     if (!username.trim() || !displayName.trim()) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.verifyError || (locale === 'en' ? 'Please enter account and name' : '请输入账号和姓名'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword.verifyError);
       return;
     }
 
@@ -43,7 +43,7 @@ export default function ForgotPasswordScreen() {
     );
 
     if (!user) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.notFound || (locale === 'en' ? 'Account or name does not match' : '账号或姓名不匹配'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword.notFound);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
@@ -55,17 +55,17 @@ export default function ForgotPasswordScreen() {
 
   const handleReset = async () => {
     if (!newPassword.trim()) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordEmpty || (locale === 'en' ? 'New password cannot be empty' : '新密码不能为空'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword.passwordEmpty);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert(i18n.common.warning, i18n.messages?.passwordMismatch || (locale === 'en' ? 'Passwords do not match' : '两次输入的密码不一致'));
+      Alert.alert(i18n.common.warning, '两次输入的密码不一致');
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.passwordTooShort || (locale === 'en' ? 'Password must be at least 6 characters' : '密码长度至少6位'));
+      Alert.alert(i18n.common.warning, i18n.forgotPassword.passwordTooShort);
       return;
     }
 
@@ -76,11 +76,11 @@ export default function ForgotPasswordScreen() {
 
       // 这里应该调用更新密码的函数
       // 由于这是本地存储，我们需要在 budget-context 中添加相应的函数
-      Alert.alert(i18n.common.success, i18n.forgotPassword?.resetSuccess || (settings.locale === 'en' ? 'Password reset successfully, please login again' : '密码重置成功，请重新登录'));
+      Alert.alert(i18n.common.success, i18n.forgotPassword.resetSuccess);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (error) {
-      Alert.alert(i18n.common.warning, i18n.forgotPassword?.resetFailed || '密码重置失败');
+      Alert.alert(i18n.common.warning, i18n.forgotPassword.resetFailed);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -95,7 +95,7 @@ export default function ForgotPasswordScreen() {
             <Text style={{ color: colors.primary, fontSize: 16 }}>← {i18n.common.cancel}</Text>
           </Pressable>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {i18n.forgotPassword?.title || '忘记密码'}
+            {i18n.forgotPassword.title}
           </Text>
         </View>
 
@@ -103,10 +103,10 @@ export default function ForgotPasswordScreen() {
           {step === 'verify' ? (
             <>
               <Text style={[styles.stepTitle, { color: colors.foreground }]}>
-                {i18n.forgotPassword?.verifyTitle || '验证账户信息'}
+                {i18n.forgotPassword.verifyTitle}
               </Text>
               <Text style={[styles.stepDescription, { color: colors.muted }]}>
-                {i18n.forgotPassword?.verifyDesc || '请输入您的账号和注册时的姓名以验证身份'}
+                {i18n.forgotPassword.verifyDesc}
               </Text>
 
               <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -142,15 +142,15 @@ export default function ForgotPasswordScreen() {
           ) : (
             <>
               <Text style={[styles.stepTitle, { color: colors.foreground }]}>
-                {i18n.forgotPassword?.resetTitle || '设置新密码'}
+                {i18n.forgotPassword.resetTitle}
               </Text>
               <Text style={[styles.stepDescription, { color: colors.muted }]}>
-                {i18n.forgotPassword?.resetDesc || '请输入您的新密码'}
+                {i18n.forgotPassword.resetDesc}
               </Text>
 
               <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                 <TextInput
-                  placeholder={i18n.forgotPassword?.newPassword || '新密码'}
+                  placeholder={i18n.forgotPassword.newPassword}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   secureTextEntry
@@ -182,7 +182,7 @@ export default function ForgotPasswordScreen() {
                 ]}
               >
                 <Text style={styles.primaryButtonText}>
-                  {loading ? (i18n.common.loading || '加载中...') : (i18n.forgotPassword?.resetButton || '重置密码')}
+                  {loading ? i18n.common.loading : i18n.forgotPassword.resetButton}
                 </Text>
               </Pressable>
 
@@ -198,7 +198,7 @@ export default function ForgotPasswordScreen() {
                 style={styles.secondaryButton}
               >
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
-                  {i18n.forgotPassword?.backToVerify || '返回验证'}
+                  {i18n.forgotPassword.backToVerify}
                 </Text>
               </Pressable>
             </>

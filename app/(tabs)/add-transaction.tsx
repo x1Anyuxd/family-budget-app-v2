@@ -483,9 +483,9 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: 48,
     fontSize: 15,
     textAlignVertical: 'center',
+    textAlign: 'center',
   },
   emptyBox: {
     borderWidth: 1,
