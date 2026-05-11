@@ -70,7 +70,8 @@ type BudgetAction =
   | { type: 'MARK_MESSAGE_READ'; id: string }
   | { type: 'DELETE_MESSAGE'; id: string }
   | { type: 'DELETE_ANNOUNCEMENT_GROUP'; senderId: string; content: string }
-  | { type: 'MERGE_IMPORTED_BILLS'; payload: BillTransferPayload; userId: string | null; userName?: string };
+  | { type: 'MERGE_IMPORTED_BILLS'; payload: BillTransferPayload; userId: string | null; userName?: string }
+  | { type: 'UPDATE_PASSWORD'; userId: string; newPassword: string };
 
 function reducer(state: BudgetState, action: BudgetAction): BudgetState {
   switch (action.type) {
@@ -176,6 +177,13 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
         budgets: [...incomingBudgets, ...state.budgets],
       };
     }
+    case 'UPDATE_PASSWORD':
+      return {
+        ...state,
+        users: state.users.map((user) =>
+          user.id === action.userId ? { ...user, password: action.newPassword } : user,
+        ),
+      };
     default:
       return state;
   }
@@ -219,6 +227,7 @@ interface BudgetContextValue {
   register: (input: RegisterInput) => Promise<AuthResult>;
   logout: () => Promise<void>;
   updateProfile: (patch: Partial<LocalUser>) => Promise<void>;
+  updatePassword: (userId: string, newPassword: string) => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   publishAnnouncement: (content: string) => Promise<AuthResult>;
   markMessageRead: (id: string) => void;
@@ -562,6 +571,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'UPDATE_PROFILE', userId: currentUser.id, patch });
   }, [currentUser]);
 
+  const updatePassword = useCallback(async (userId: string, newPassword: string) => {
+    dispatch({ type: 'UPDATE_PASSWORD', userId, newPassword });
+  }, []);
+
   const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
     dispatch({ type: 'UPDATE_SETTINGS', patch });
     if (patch.notificationsEnabled) await requestNotificationPermission();
@@ -669,6 +682,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       updateProfile,
+      updatePassword,
       updateSettings,
       publishAnnouncement,
       markMessageRead,
@@ -694,6 +708,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       updateProfile,
+      updatePassword,
       updateSettings,
       publishAnnouncement,
       markMessageRead,

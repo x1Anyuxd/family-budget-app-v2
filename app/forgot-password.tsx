@@ -14,6 +14,7 @@ import { ScreenContainer } from '@/components/screen-container';
 import { useColors } from '@/hooks/use-colors';
 import { useBudget } from '@/lib/budget-context';
 import { getI18n } from '@/lib/i18n';
+import type { LocalUser } from '@/lib/types';
 
 export default function ForgotPasswordScreen() {
   const colors = useColors();
@@ -27,8 +28,8 @@ export default function ForgotPasswordScreen() {
   const [displayName, setDisplayName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [verifiedUser, setVerifiedUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [verifiedUser, setVerifiedUser] = useState<LocalUser | null>(null);
 
   const handleVerify = async () => {
     if (!username.trim() || !displayName.trim()) {
@@ -53,6 +54,8 @@ export default function ForgotPasswordScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  const { updatePassword } = useBudget();
+
   const handleReset = async () => {
     if (!newPassword.trim()) {
       Alert.alert(i18n.common.warning, i18n.forgotPassword.passwordEmpty);
@@ -60,7 +63,7 @@ export default function ForgotPasswordScreen() {
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert(i18n.common.warning, '两次输入的密码不一致');
+      Alert.alert(i18n.common.warning, i18n.messages.passwordMismatch);
       return;
     }
 
@@ -74,8 +77,11 @@ export default function ForgotPasswordScreen() {
       // 模拟异步操作
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // 这里应该调用更新密码的函数
-      // 由于这是本地存储，我们需要在 budget-context 中添加相应的函数
+      // 更新验证的用户的密码
+      if (verifiedUser) {
+        await updatePassword(verifiedUser.id, newPassword);
+      }
+
       Alert.alert(i18n.common.success, i18n.forgotPassword.resetSuccess);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
