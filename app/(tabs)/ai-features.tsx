@@ -6,6 +6,8 @@
  * 2. 收据识别 - 真实摄像头拍照，直接创建记录
  * 3. 支出预测
  * 4. 财务建议
+ * 
+ * 使用当前登录用户的信息，无需再次登录
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -18,15 +20,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Modal,
-  TextInput,
 } from 'react-native';
 import { useAuth } from '../../hooks/use-auth';
 import SpeechRecognizer from '../../lib/speech-recognition';
 import { apiClient } from '../../lib/api-client';
 
 export default function AIFeaturesScreen() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'voice' | 'receipt' | 'prediction' | 'advice'>('voice');
   const [voiceResult, setVoiceResult] = useState<any>(null);
   const [receiptResult, setReceiptResult] = useState<any>(null);
@@ -37,14 +37,7 @@ export default function AIFeaturesScreen() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
-  const [transactionDescription, setTransactionDescription] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
-  const [userId, setUserId] = useState<string>('');
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginUsername, setLoginUsername] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
   
   const speechRecognizerRef = useRef<SpeechRecognizer | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
@@ -52,91 +45,27 @@ export default function AIFeaturesScreen() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize speech recognizer and check user
+  // Initialize speech recognizer
   useEffect(() => {
     speechRecognizerRef.current = new SpeechRecognizer();
-    
-    // Try to get userId from localStorage or user object
-    const storedUserId = localStorage.getItem('userId');
-    if (storedUserId) {
-      setUserId(storedUserId);
-    } else if (user?.id) {
-      setUserId(user.id);
-      localStorage.setItem('userId', user.id);
-    }
-  }, [user]);
+  }, []);
 
-  // 处理登录
-  const handleLogin = async () => {
-    if (!loginUsername || !loginPassword) {
-      Alert.alert('错误', '请输入用户名和密码');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await apiClient.post('/users/login', {
-        username: loginUsername,
-        password: loginPassword,
-      });
-
-      if (response.success && response.userId) {
-        setUserId(response.userId);
-        localStorage.setItem('userId', response.userId);
-        setShowLoginModal(false);
-        setLoginUsername('');
-        setLoginPassword('');
-        Alert.alert('成功', '登录成功');
-      } else {
-        Alert.alert('错误', response.error || '登录失败');
-      }
-    } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '登录失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 处理注册
-  const handleRegister = async () => {
-    if (!loginUsername || !loginPassword) {
-      Alert.alert('错误', '请输入用户名和密码');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await apiClient.post('/users/register', {
-        username: loginUsername,
-        email: `${loginUsername}@example.com`,
-        password: loginPassword,
-      });
-
-      if (response.success && response.userId) {
-        setUserId(response.userId);
-        localStorage.setItem('userId', response.userId);
-        setShowLoginModal(false);
-        setLoginUsername('');
-        setLoginPassword('');
-        Alert.alert('成功', '注册成功');
-      } else {
-        Alert.alert('错误', response.error || '注册失败');
-      }
-    } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '注册失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 检查用户是否登录
+  if (!isAuthenticated || !user) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.notAuthContainer}>
+          <Text style={styles.notAuthTitle}>🔐 需要登录</Text>
+          <Text style={styles.notAuthText}>
+            请先在主页登录账号，然后使用 AI 功能
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   // 开始语音识别
   const handleStartRecording = async () => {
-    if (!userId) {
-      Alert.alert('提示', '请先登录');
-      setShowLoginModal(true);
-      return;
-    }
-
     if (!speechRecognizerRef.current || !speechRecognizerRef.current.isSupported()) {
       Alert.alert('错误', '浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari');
       return;
@@ -187,7 +116,7 @@ export default function AIFeaturesScreen() {
     }
   };
 
-  // 处理语音识别结果
+  // 处理语音识别结果 - 直接创建交易
   const handleProcessSpeech = async (text: string) => {
     if (!text || text.trim().length === 0) {
       Alert.alert('提示', '没有识别到语音');
@@ -198,7 +127,7 @@ export default function AIFeaturesScreen() {
     try {
       // 调用后端处理语音并直接创建交易
       const response = await apiClient.post('/ai-transaction/create-from-speech', {
-        userId: userId,
+        userId: user.id,
         text: text,
         type: 'expense',
       });
@@ -211,12 +140,12 @@ export default function AIFeaturesScreen() {
           description: response.description,
           transactionId: response.transactionId,
         });
-        Alert.alert('成功', `✅ 记录已创建！\n金额: ¥${response.amount}\n分类: ${response.category}`);
+        Alert.alert('✅ 成功', `已自动添加到您的记录\n金额: ¥${response.amount}\n分类: ${response.category}`);
       } else {
-        Alert.alert('错误', response.error || '处理失败');
+        Alert.alert('❌ 失败', response.error || '处理失败');
       }
     } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '处理失败');
+      Alert.alert('❌ 错误', error instanceof Error ? error.message : '处理失败');
     } finally {
       setLoading(false);
     }
@@ -224,12 +153,6 @@ export default function AIFeaturesScreen() {
 
   // 开始摄像头
   const handleStartCamera = async () => {
-    if (!userId) {
-      Alert.alert('提示', '请先登录');
-      setShowLoginModal(true);
-      return;
-    }
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
@@ -249,14 +172,14 @@ export default function AIFeaturesScreen() {
         };
       }
     } catch (err) {
-      Alert.alert('错误', '无法访问摄像头，请检查权限');
+      Alert.alert('❌ 错误', '无法访问摄像头，请检查权限');
     }
   };
 
   // 拍摄照片
   const handleCapturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) {
-      Alert.alert('错误', '摄像头未准备好');
+      Alert.alert('❌ 错误', '摄像头未准备好');
       return;
     }
     
@@ -286,19 +209,18 @@ export default function AIFeaturesScreen() {
       await handleProcessReceipt(dataUrl);
     } catch (err) {
       console.error('拍摄照片错误:', err);
-      Alert.alert('错误', '拍摄照片失败');
+      Alert.alert('❌ 错误', '拍摄照片失败');
     }
   };
 
-  // 处理收据识别
+  // 处理收据识别 - 直接创建交易
   const handleProcessReceipt = async (imageData: string) => {
     setLoading(true);
     try {
-      // 使用图片数据作为描述
       const description = '收据图片数据';
       
       const response = await apiClient.post('/ai-transaction/create-from-receipt', {
-        userId: userId,
+        userId: user.id,
         description: description,
         type: 'expense',
       });
@@ -310,12 +232,12 @@ export default function AIFeaturesScreen() {
           category: response.category,
           transactionId: response.transactionId,
         });
-        Alert.alert('成功', `✅ 记录已创建！\n金额: ¥${response.amount}\n商户: ${response.merchant}`);
+        Alert.alert('✅ 成功', `已自动添加到您的记录\n金额: ¥${response.amount}\n商户: ${response.merchant}`);
       } else {
-        Alert.alert('错误', response.error || '处理失败');
+        Alert.alert('❌ 失败', response.error || '处理失败');
       }
     } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '处理失败');
+      Alert.alert('❌ 错误', error instanceof Error ? error.message : '处理失败');
     } finally {
       setLoading(false);
     }
@@ -330,24 +252,18 @@ export default function AIFeaturesScreen() {
 
   // 生成支出预测
   const handlePredictExpense = async () => {
-    if (!userId) {
-      Alert.alert('提示', '请先登录');
-      setShowLoginModal(true);
-      return;
-    }
-
     setLoading(true);
     try {
-      const response = await apiClient.get('/ai-simple/predict-expense', { userId, months: 6 });
+      const response = await apiClient.get('/ai-simple/predict-expense', { userId: user.id, months: 6 });
       
       if (response.success) {
         setPredictions(response.predictions || []);
-        Alert.alert('成功', '预测生成成功');
+        Alert.alert('✅ 成功', '预测生成成功');
       } else {
-        Alert.alert('错误', response.error || '预测失败');
+        Alert.alert('❌ 失败', response.error || '预测失败');
       }
     } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '预测失败');
+      Alert.alert('❌ 错误', error instanceof Error ? error.message : '预测失败');
     } finally {
       setLoading(false);
     }
@@ -355,27 +271,21 @@ export default function AIFeaturesScreen() {
 
   // 生成财务建议
   const handleGenerateAdvice = async () => {
-    if (!userId) {
-      Alert.alert('提示', '请先登录');
-      setShowLoginModal(true);
-      return;
-    }
-
     setLoading(true);
     try {
-      const response = await apiClient.get('/ai-simple/generate-advice', { userId });
+      const response = await apiClient.get('/ai-simple/generate-advice', { userId: user.id });
       
       if (response.success) {
         setAdvice({
           advice: response.advice || [],
           priority: response.priority || 'medium',
         });
-        Alert.alert('成功', '建议生成成功');
+        Alert.alert('✅ 成功', '建议生成成功');
       } else {
-        Alert.alert('错误', response.error || '建议生成失败');
+        Alert.alert('❌ 失败', response.error || '建议生成失败');
       }
     } catch (error) {
-      Alert.alert('错误', error instanceof Error ? error.message : '建议生成失败');
+      Alert.alert('❌ 错误', error instanceof Error ? error.message : '建议生成失败');
     } finally {
       setLoading(false);
     }
@@ -385,16 +295,7 @@ export default function AIFeaturesScreen() {
     <ScrollView style={styles.container}>
       {/* 用户状态条 */}
       <View style={styles.userBar}>
-        {userId ? (
-          <Text style={styles.userText}>✅ 已登录 (ID: {userId.substring(0, 8)}...)</Text>
-        ) : (
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => setShowLoginModal(true)}
-          >
-            <Text style={styles.loginButtonText}>🔓 点击登录</Text>
-          </TouchableOpacity>
-        )}
+        <Text style={styles.userText}>✅ 已登录: {user.username || user.name || '用户'}</Text>
       </View>
 
       {/* 标题 */}
@@ -444,9 +345,9 @@ export default function AIFeaturesScreen() {
         {/* 语音记账 */}
         {activeTab === 'voice' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>语音记账</Text>
+            <Text style={styles.sectionTitle}>🎤 语音记账</Text>
             <Text style={styles.description}>
-              点击按钮开始说话，AI 将自动识别金额和分类，直接创建记录。
+              点击按钮开始说话，AI 将自动识别金额和分类，直接添加到您的记录中。
             </Text>
 
             {isRecording ? (
@@ -479,26 +380,18 @@ export default function AIFeaturesScreen() {
 
             {voiceResult && (
               <View style={styles.resultCard}>
-                <Text style={styles.resultTitle}>✅ 记录已创建</Text>
+                <Text style={styles.resultTitle}>✅ 已自动添加到您的记录</Text>
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultLabel}>文字:</Text>
+                  <Text style={styles.resultLabel}>说的话:</Text>
                   <Text style={styles.resultValue}>{voiceResult.text}</Text>
                 </View>
-                {voiceResult.amount > 0 && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>金额:</Text>
-                    <Text style={styles.resultValue}>¥{voiceResult.amount.toFixed(2)}</Text>
-                  </View>
-                )}
-                {voiceResult.category && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>分类:</Text>
-                    <Text style={styles.resultValue}>{voiceResult.category}</Text>
-                  </View>
-                )}
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultLabel}>记录ID:</Text>
-                  <Text style={styles.resultValue}>{voiceResult.transactionId?.substring(0, 8)}...</Text>
+                  <Text style={styles.resultLabel}>识别金额:</Text>
+                  <Text style={[styles.resultValue, styles.amountText]}>¥{voiceResult.amount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.resultItem}>
+                  <Text style={styles.resultLabel}>识别分类:</Text>
+                  <Text style={styles.resultValue}>{voiceResult.category}</Text>
                 </View>
               </View>
             )}
@@ -508,9 +401,9 @@ export default function AIFeaturesScreen() {
         {/* 收据识别 */}
         {activeTab === 'receipt' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>收据识别</Text>
+            <Text style={styles.sectionTitle}>📷 收据识别</Text>
             <Text style={styles.description}>
-              拍摄收据照片，AI 将自动识别金额、商户和分类，直接创建记录。
+              拍摄收据照片，AI 将自动识别金额、商户和分类，直接添加到您的记录中。
             </Text>
 
             {!capturedImage ? (
@@ -565,26 +458,18 @@ export default function AIFeaturesScreen() {
 
             {receiptResult && (
               <View style={styles.resultCard}>
-                <Text style={styles.resultTitle}>✅ 记录已创建</Text>
+                <Text style={styles.resultTitle}>✅ 已自动添加到您的记录</Text>
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultLabel}>金额:</Text>
-                  <Text style={styles.resultValue}>¥{receiptResult.amount.toFixed(2)}</Text>
+                  <Text style={styles.resultLabel}>识别金额:</Text>
+                  <Text style={[styles.resultValue, styles.amountText]}>¥{receiptResult.amount.toFixed(2)}</Text>
                 </View>
-                {receiptResult.merchant && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>商户:</Text>
-                    <Text style={styles.resultValue}>{receiptResult.merchant}</Text>
-                  </View>
-                )}
-                {receiptResult.category && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>分类:</Text>
-                    <Text style={styles.resultValue}>{receiptResult.category}</Text>
-                  </View>
-                )}
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultLabel}>记录ID:</Text>
-                  <Text style={styles.resultValue}>{receiptResult.transactionId?.substring(0, 8)}...</Text>
+                  <Text style={styles.resultLabel}>识别商户:</Text>
+                  <Text style={styles.resultValue}>{receiptResult.merchant}</Text>
+                </View>
+                <View style={styles.resultItem}>
+                  <Text style={styles.resultLabel}>识别分类:</Text>
+                  <Text style={styles.resultValue}>{receiptResult.category}</Text>
                 </View>
               </View>
             )}
@@ -594,9 +479,9 @@ export default function AIFeaturesScreen() {
         {/* 支出预测 */}
         {activeTab === 'prediction' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>支出预测</Text>
+            <Text style={styles.sectionTitle}>📊 支出预测</Text>
             <Text style={styles.description}>
-              基于历史消费数据，AI 预测未来 6 个月的支出趋势。
+              基于您的历史消费数据，AI 预测未来 6 个月的支出趋势。
             </Text>
 
             <TouchableOpacity
@@ -638,9 +523,9 @@ export default function AIFeaturesScreen() {
         {/* 财务建议 */}
         {activeTab === 'advice' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>财务建议</Text>
+            <Text style={styles.sectionTitle}>💡 财务建议</Text>
             <Text style={styles.description}>
-              AI 根据消费模式生成个性化的财务建议。
+              AI 根据您的消费模式生成个性化的财务建议。
             </Text>
 
             <TouchableOpacity
@@ -664,82 +549,11 @@ export default function AIFeaturesScreen() {
                     <Text style={styles.adviceText}>{item}</Text>
                   </View>
                 ))}
-                {advice.priority && (
-                  <View style={styles.resultItem}>
-                    <Text style={styles.resultLabel}>优先级:</Text>
-                    <Text style={styles.resultValue}>
-                      {advice.priority === 'high' ? '高' : advice.priority === 'medium' ? '中' : '低'}
-                    </Text>
-                  </View>
-                )}
               </View>
             )}
           </View>
         )}
       </View>
-
-      {/* 登录/注册模态框 */}
-      <Modal
-        visible={showLoginModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowLoginModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>登录/注册</Text>
-
-            <Text style={styles.inputLabel}>用户名</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="输入用户名"
-              value={loginUsername}
-              onChangeText={setLoginUsername}
-            />
-
-            <Text style={styles.inputLabel}>密码</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="输入密码"
-              value={loginPassword}
-              onChangeText={setLoginPassword}
-              secureTextEntry
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, loading && styles.buttonDisabled]}
-                onPress={() => setShowLoginModal(false)}
-                disabled={loading}
-              >
-                <Text style={styles.cancelButtonText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.registerButton, loading && styles.buttonDisabled]}
-                onPress={handleRegister}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.registerButtonText}>注册</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>登录</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -748,6 +562,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  notAuthContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  notAuthTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  notAuthText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   userBar: {
     backgroundColor: '#E8F5E9',
@@ -761,18 +594,6 @@ const styles = StyleSheet.create({
     color: '#2E7D32',
     fontWeight: '600',
     textAlign: 'center',
-  },
-  loginButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   header: {
     paddingHorizontal: 16,
@@ -938,6 +759,10 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
+  amountText: {
+    color: '#D32F2F',
+    fontSize: 16,
+  },
   predictionItem: {
     marginBottom: 12,
   },
@@ -979,77 +804,5 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
     lineHeight: 20,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  registerButton: {
-    backgroundColor: '#FF9800',
-  },
-  registerButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  confirmButton: {
-    backgroundColor: '#4CAF50',
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
   },
 });
