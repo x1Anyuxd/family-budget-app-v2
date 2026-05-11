@@ -251,6 +251,10 @@ export default function HomeScreen() {
 
       <Pressable
         onPress={() => {
+          if (!isAuthenticated) {
+            Alert.alert(i18n.common.warning, i18n.messages?.needLogin || (settings.locale === 'en' ? 'Please log in first' : '请先登录或注册'));
+            return;
+          }
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           router.push('/(tabs)/add-transaction' as any);
         }}

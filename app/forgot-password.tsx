@@ -59,7 +59,7 @@ export default function ForgotPasswordScreen() {
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert(i18n.common.warning, i18n.messages.passwordMismatch);
+      Alert.alert(i18n.common.warning, i18n.messages?.passwordMismatch || (settings.locale === 'en' ? 'Passwords do not match' : '两次输入的密码不一致'));
       return;
     }
 

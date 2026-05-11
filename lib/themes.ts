@@ -84,12 +84,12 @@ export const THEMES: Record<ThemeName, ThemeColors> = {
 export const THEME_NAMES = Object.keys(THEMES) as ThemeName[];
 
 export const THEME_LABELS: Record<ThemeName, string> = {
-  default: '绿色',
-  blue: '蓝色',
-  purple: '紫色',
-  orange: '橙色',
-  pink: '粉色',
-  teal: '青色',
+  default: '绿色 / Green',
+  blue: '蓝色 / Blue',
+  purple: '紫色 / Purple',
+  orange: '橙色 / Orange',
+  pink: '粉色 / Pink',
+  teal: '青色 / Teal',
 };
 
 export function getTheme(name: ThemeName): ThemeColors {

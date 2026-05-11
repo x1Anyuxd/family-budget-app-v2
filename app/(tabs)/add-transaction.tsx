@@ -472,15 +472,19 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 14,
+    paddingVertical: 12,
     gap: 10,
+    minHeight: 48,
   },
   textInput: {
     flex: 1,
     height: 48,
     fontSize: 15,
+    textAlignVertical: 'center',
   },
   emptyBox: {
     borderWidth: 1,

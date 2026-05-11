@@ -95,7 +95,12 @@ export default function SettingsScreen() {
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(i18n.common.warning, i18n.messages.passwordMismatch);
+      Alert.alert(i18n.common.warning, i18n.messages?.passwordMismatch || (settings.locale === 'en' ? 'Passwords do not match' : '两次输入的密码不一致'));
+      return;
+    }
+
+    if (password.length < 4) {
+      Alert.alert(i18n.common.warning, settings.locale === 'en' ? 'Password must be at least 4 characters' : '密码长度至少4位');
       return;
     }
 

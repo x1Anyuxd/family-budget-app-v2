@@ -72,23 +72,23 @@ export interface BillTransferPayload {
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
-  { id: 'food', name: '餐饮', icon: 'restaurant', type: 'expense', color: '#FF6B6B' },
-  { id: 'transport', name: '交通', icon: 'directions-car', type: 'expense', color: '#4ECDC4' },
-  { id: 'shopping', name: '购物', icon: 'shopping-bag', type: 'expense', color: '#45B7D1' },
-  { id: 'housing', name: '住房', icon: 'home', type: 'expense', color: '#96CEB4' },
-  { id: 'entertain', name: '娱乐', icon: 'movie', type: 'expense', color: '#FFEAA7' },
-  { id: 'medical', name: '医疗', icon: 'local-hospital', type: 'expense', color: '#DDA0DD' },
-  { id: 'education', name: '教育', icon: 'school', type: 'expense', color: '#98D8C8' },
-  { id: 'utilities', name: '水电', icon: 'bolt', type: 'expense', color: '#F7DC6F' },
-  { id: 'clothing', name: '服饰', icon: 'checkroom', type: 'expense', color: '#F1948A' },
-  { id: 'other_exp', name: '其他', icon: 'more-horiz', type: 'expense', color: '#AED6F1' },
+  { id: 'food', name: '餐饮 / Food', icon: 'restaurant', type: 'expense', color: '#FF6B6B' },
+  { id: 'transport', name: '交通 / Transport', icon: 'directions-car', type: 'expense', color: '#4ECDC4' },
+  { id: 'shopping', name: '购物 / Shopping', icon: 'shopping-bag', type: 'expense', color: '#45B7D1' },
+  { id: 'housing', name: '住房 / Housing', icon: 'home', type: 'expense', color: '#96CEB4' },
+  { id: 'entertain', name: '娱乐 / Entertainment', icon: 'movie', type: 'expense', color: '#FFEAA7' },
+  { id: 'medical', name: '医疗 / Medical', icon: 'local-hospital', type: 'expense', color: '#DDA0DD' },
+  { id: 'education', name: '教育 / Education', icon: 'school', type: 'expense', color: '#98D8C8' },
+  { id: 'utilities', name: '水电 / Utilities', icon: 'bolt', type: 'expense', color: '#F7DC6F' },
+  { id: 'clothing', name: '服饰 / Clothing', icon: 'checkroom', type: 'expense', color: '#F1948A' },
+  { id: 'other_exp', name: '其他 / Other', icon: 'more-horiz', type: 'expense', color: '#AED6F1' },
 ];
 
 export const INCOME_CATEGORIES: Category[] = [
-  { id: 'salary', name: '薪资', icon: 'work', type: 'income', color: '#4CAF82' },
-  { id: 'investment', name: '投资', icon: 'trending-up', type: 'income', color: '#5DC994' },
-  { id: 'bonus', name: '奖金', icon: 'card-giftcard', type: 'income', color: '#81C784' },
-  { id: 'other_inc', name: '其他', icon: 'attach-money', type: 'income', color: '#A5D6A7' },
+  { id: 'salary', name: '薪资 / Salary', icon: 'work', type: 'income', color: '#4CAF82' },
+  { id: 'investment', name: '投资 / Investment', icon: 'trending-up', type: 'income', color: '#5DC994' },
+  { id: 'bonus', name: '奖金 / Bonus', icon: 'card-giftcard', type: 'income', color: '#81C784' },
+  { id: 'other_inc', name: '其他 / Other', icon: 'attach-money', type: 'income', color: '#A5D6A7' },
 ];
 
 export const ALL_CATEGORIES: Category[] = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
