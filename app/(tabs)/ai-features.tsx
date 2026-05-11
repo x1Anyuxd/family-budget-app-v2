@@ -2,13 +2,13 @@
  * AI 功能屏幕
  * 
  * 展示所有 AI 功能：
- * 1. 语音记账
- * 2. 收据识别
+ * 1. 语音记账 - 真实麦克风录音
+ * 2. 收据识别 - 真实摄像头拍照
  * 3. 支出预测
  * 4. 财务建议
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,16 @@ export default function AIFeaturesScreen() {
   const [receiptResult, setReceiptResult] = useState<any>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [advice, setAdvice] = useState<any>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     loading,
@@ -48,22 +58,117 @@ export default function AIFeaturesScreen() {
     },
   });
 
-  // AI 功能对所有用户开放（包括游客）
-
-  const handleVoiceRecord = async () => {
-    // 模拟语音识别
-    const result = await recognizeSpeech('https://example.com/audio.mp3');
-    if (result) {
-      setVoiceResult(result);
+  // 开始录音
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // 发送到后端进行识别
+        const result = await recognizeSpeech(audioUrl);
+        if (result) {
+          setVoiceResult(result);
+        }
+        
+        // 停止所有音频轨道
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // 计时器
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      
+      // 10秒后自动停止录音
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+          setIsRecording(false);
+          if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+        }
+      }, 10000);
+      
+    } catch (err) {
+      Alert.alert('错误', '无法访问麦克风，请检查权限');
     }
   };
 
-  const handleReceiptCapture = async () => {
-    // 模拟收据识别
-    const result = await recognizeReceipt('https://example.com/receipt.jpg');
-    if (result) {
-      setReceiptResult(result);
+  // 停止录音
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     }
+  };
+
+  // 开始摄像头
+  const handleStartCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      videoStreamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      Alert.alert('错误', '无法访问摄像头，请检查权限');
+    }
+  };
+
+  // 拍摄照片
+  const handleCapturePhoto = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    try {
+      const context = canvasRef.current.getContext('2d');
+      if (!context) return;
+      
+      canvasRef.current.width = videoRef.current.videoWidth;
+      canvasRef.current.height = videoRef.current.videoHeight;
+      context.drawImage(videoRef.current, 0, 0);
+      
+      const imageUrl = canvasRef.current.toDataURL('image/jpeg');
+      setCapturedImage(imageUrl);
+      
+      // 停止摄像头
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach(track => track.stop());
+        videoStreamRef.current = null;
+      }
+      
+      // 发送到后端进行识别
+      const result = await recognizeReceipt(imageUrl);
+      if (result) {
+        setReceiptResult(result);
+      }
+    } catch (err) {
+      Alert.alert('错误', '拍摄照片失败');
+    }
+  };
+
+  // 重新拍摄
+  const handleRetakePhoto = async () => {
+    setCapturedImage(null);
+    await handleStartCamera();
   };
 
   const handlePredictExpense = async () => {
@@ -136,17 +241,32 @@ export default function AIFeaturesScreen() {
               按住麦克风按钮说出您的支出信息，AI 将自动识别金额和分类。
             </Text>
 
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleVoiceRecord}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>🎤 开始录音</Text>
-              )}
-            </TouchableOpacity>
+            {isRecording ? (
+              <View style={styles.recordingContainer}>
+                <View style={styles.recordingIndicator}>
+                  <View style={styles.recordingDot} />
+                  <Text style={styles.recordingText}>录音中... {recordingTime}s</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.button, styles.stopButton]}
+                  onPress={handleStopRecording}
+                >
+                  <Text style={styles.buttonText}>⏹ 停止录音</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleStartRecording}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>🎤 开始录音</Text>
+                )}
+              </TouchableOpacity>
+            )}
 
             {voiceResult && (
               <View style={styles.resultCard}>
@@ -184,17 +304,53 @@ export default function AIFeaturesScreen() {
               拍摄收据照片，AI 将自动识别金额、商户和分类。
             </Text>
 
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleReceiptCapture}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>📷 拍摄收据</Text>
-              )}
-            </TouchableOpacity>
+            {!capturedImage ? (
+              <>
+                <video
+                  ref={videoRef}
+                  style={styles.video}
+                  playsInline
+                />
+                <canvas
+                  ref={canvasRef}
+                  style={{ display: 'none' }}
+                />
+                
+                {videoStreamRef.current ? (
+                  <TouchableOpacity
+                    style={[styles.button, loading && styles.buttonDisabled]}
+                    onPress={handleCapturePhoto}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>📸 拍摄照片</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleStartCamera}
+                  >
+                    <Text style={styles.buttonText}>📷 打开摄像头</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <>
+                <Image
+                  source={{ uri: capturedImage }}
+                  style={styles.capturedImage}
+                />
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={handleRetakePhoto}
+                >
+                  <Text style={styles.buttonText}>🔄 重新拍摄</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             {receiptResult && (
               <View style={styles.resultCard}>
@@ -303,45 +459,27 @@ export default function AIFeaturesScreen() {
             {advice && (
               <View style={styles.resultCard}>
                 <Text style={styles.resultTitle}>财务建议</Text>
-                <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(advice.priority) }]}>
-                  <Text style={styles.priorityText}>优先级: {advice.priority}</Text>
-                </View>
-                {advice.advice.map((item: string, index: number) => (
+                {advice.advice && advice.advice.map((item: string, index: number) => (
                   <View key={index} style={styles.adviceItem}>
                     <Text style={styles.adviceNumber}>{index + 1}.</Text>
                     <Text style={styles.adviceText}>{item}</Text>
                   </View>
                 ))}
+                {advice.priority && (
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>优先级:</Text>
+                    <Text style={styles.resultValue}>
+                      {advice.priority === 'high' ? '高' : advice.priority === 'medium' ? '中' : '低'}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
-          </View>
-        )}
-
-        {/* 错误提示 */}
-        {error && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={clearError}>
-              <Text style={styles.errorDismiss}>关闭</Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
     </ScrollView>
   );
-}
-
-function getPriorityColor(priority: string): string {
-  switch (priority) {
-    case 'high':
-      return '#FF6B6B';
-    case 'medium':
-      return '#FFA500';
-    case 'low':
-      return '#4CAF50';
-    default:
-      return '#999';
-  }
 }
 
 const styles = StyleSheet.create({
@@ -350,10 +488,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#e0e0e0',
   },
   title: {
     fontSize: 28,
@@ -363,27 +503,28 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#999',
-    marginTop: 5,
+    marginTop: 4,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingHorizontal: 10,
+    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 8,
   },
   tab: {
     flex: 1,
-    paddingVertical: 15,
-    alignItems: 'center',
-    borderBottomWidth: 3,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 2,
     borderBottomColor: 'transparent',
+    alignItems: 'center',
   },
   activeTab: {
     borderBottomColor: '#007AFF',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#999',
     fontWeight: '500',
   },
@@ -391,29 +532,38 @@ const styles = StyleSheet.create({
     color: '#007AFF',
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   section: {
-    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   description: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 20,
+    marginBottom: 16,
     lineHeight: 20,
   },
   button: {
     backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  stopButton: {
+    backgroundColor: '#FF3B30',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -423,11 +573,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  recordingContainer: {
+    marginVertical: 8,
+  },
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFE5E5',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  recordingDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF3B30',
+    marginRight: 8,
+    animation: 'pulse 1s infinite',
+  },
+  recordingText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  video: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#000',
+    borderRadius: 8,
+    marginVertical: 8,
+  },
+  capturedImage: {
+    width: '100%',
+    height: 300,
+    borderRadius: 8,
+    marginVertical: 8,
+  },
   resultCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#007AFF',
   },
@@ -435,14 +623,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   resultItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e0e0e0',
   },
   resultLabel: {
     fontSize: 14,
@@ -455,80 +643,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   predictionItem: {
-    marginBottom: 15,
+    marginBottom: 12,
   },
   predictionMonth: {
     fontSize: 12,
-    color: '#999',
-    marginBottom: 5,
+    color: '#666',
+    marginBottom: 4,
   },
   predictionBar: {
-    height: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
-    marginBottom: 5,
+    height: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
     overflow: 'hidden',
+    marginBottom: 4,
   },
   predictionFill: {
     height: '100%',
     backgroundColor: '#007AFF',
-    borderRadius: 4,
   },
   predictionAmount: {
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
-  },
-  priorityBadge: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginBottom: 15,
-  },
-  priorityText: {
-    color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    color: '#333',
   },
   adviceItem: {
     flexDirection: 'row',
-    marginBottom: 12,
-    paddingBottom: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e0e0e0',
   },
   adviceNumber: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#007AFF',
-    marginRight: 10,
-    minWidth: 25,
+    marginRight: 8,
+    minWidth: 20,
   },
   adviceText: {
     fontSize: 14,
     color: '#333',
     flex: 1,
     lineHeight: 20,
-  },
-  errorCard: {
-    backgroundColor: '#FFE5E5',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  errorDismiss: {
-    color: '#FF6B6B',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 10,
   },
 });
