@@ -421,7 +421,7 @@ export default function RecordsScreen() {
                   ]}
                 >
                   <IconSymbol name={cat.icon as any} size={16} color={cat.color} />
-                  <Text style={{ color: editCategoryId === cat.id ? cat.color : colors.foreground, fontSize: 12, fontWeight: '600' }}>{cat.name}</Text>
+                  <Text style={{ color: editCategoryId === cat.id ? cat.color : colors.foreground, fontSize: 12, fontWeight: '600' }}>{getCategoryName(cat.id, settings.locale)}</Text>
                 </Pressable>
               ))}
             </View>

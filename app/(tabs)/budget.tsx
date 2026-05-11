@@ -298,7 +298,7 @@ export default function BudgetScreen() {
           <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editingBudgetId ? i18n.budget.editBudget : i18n.budget.addBudget}</Text>
             <Text style={[styles.modalHint, { color: colors.muted }]}>
-              {formatMonthLabel(month)} · {EXPENSE_CATEGORIES.find((item) => item.id === editingCategoryId)?.name}
+              {formatMonthLabel(month)} · {getCategoryName(editingCategoryId, settings.locale)}
             </Text>
             <TextInput
               value={amountInput}
