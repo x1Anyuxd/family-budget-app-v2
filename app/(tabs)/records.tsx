@@ -64,6 +64,8 @@ export default function RecordsScreen() {
   } = useBudget();
   const i18n = getI18n(settings.locale);
   const [month, setMonth] = useState(getCurrentMonth());
+  const [viewMode, setViewMode] = useState<'month' | 'year'>('month');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [transferMenuVisible, setTransferMenuVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editType, setEditType] = useState<TransactionType>('expense');
@@ -72,15 +74,26 @@ export default function RecordsScreen() {
   const [editDate, setEditDate] = useState('');
   const [editNote, setEditNote] = useState('');
 
-  const transactions = getMonthTransactions(month);
+  const getYearTransactions = (year: number) => {
+    const allTransactions = [];
+    for (let m = 1; m <= 12; m++) {
+      const monthStr = `${year}-${String(m).padStart(2, '0')}`;
+      allTransactions.push(...getMonthTransactions(monthStr));
+    }
+    return allTransactions;
+  };
+
+  const transactions = viewMode === 'month' ? getMonthTransactions(month) : getYearTransactions(selectedYear);
   const editCategories = editType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
   const grouped = useMemo<GroupedDay[]>(() => {
     const bucket = new Map<string, Transaction[]>();
+    const keyFn = viewMode === 'month' ? (d: string) => d : (d: string) => d.substring(0, 7);
     for (const transaction of transactions) {
-      const items = bucket.get(transaction.date) ?? [];
+      const key = keyFn(transaction.date);
+      const items = bucket.get(key) ?? [];
       items.push(transaction);
-      bucket.set(transaction.date, items);
+      bucket.set(key, items);
     }
     return Array.from(bucket.entries())
       .sort(([a], [b]) => b.localeCompare(a))
@@ -90,7 +103,7 @@ export default function RecordsScreen() {
         dayIncome: list.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0),
         dayExpense: list.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0),
       }));
-  }, [transactions]);
+  }, [transactions, viewMode]);
 
   const handleDelete = useCallback((id: string) => {
     Alert.alert(i18n.records.deleteTitle, i18n.records.deleteConfirm, [
@@ -294,12 +307,29 @@ export default function RecordsScreen() {
       </View>
 
       <View style={[styles.monthRow, { borderBottomColor: colors.border }]}> 
-        <Pressable onPress={() => setMonth(prevMonth)} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
-          <IconSymbol name="chevron.left" size={20} color={colors.primary} />
-        </Pressable>
-        <Text style={[styles.monthText, { color: colors.foreground }]}>{formatMonthLabel(month)}</Text>
-        <Pressable onPress={() => setMonth(nextMonth)} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
-          <IconSymbol name="chevron.right" size={20} color={colors.primary} />
+        {viewMode === 'month' ? (
+          <>
+            <Pressable onPress={() => setMonth(prevMonth)} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
+              <IconSymbol name="chevron.left" size={20} color={colors.primary} />
+            </Pressable>
+            <Text style={[styles.monthText, { color: colors.foreground }]}>{formatMonthLabel(month)}</Text>
+            <Pressable onPress={() => setMonth(nextMonth)} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
+              <IconSymbol name="chevron.right" size={20} color={colors.primary} />
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable onPress={() => setSelectedYear(selectedYear - 1)} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
+              <IconSymbol name="chevron.left" size={20} color={colors.primary} />
+            </Pressable>
+            <Text style={[styles.monthText, { color: colors.foreground }]}>{selectedYear}</Text>
+            <Pressable onPress={() => setSelectedYear(selectedYear + 1)} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
+              <IconSymbol name="chevron.right" size={20} color={colors.primary} />
+            </Pressable>
+          </>
+        )}
+        <Pressable onPress={() => setViewMode(viewMode === 'month' ? 'year' : 'month')} style={({ pressed }) => [styles.monthBtn, pressed && { opacity: 0.6 }]}> 
+          <IconSymbol name={viewMode === 'month' ? 'calendar' : 'calendar-today'} size={20} color={colors.primary} />
         </Pressable>
       </View>
 
