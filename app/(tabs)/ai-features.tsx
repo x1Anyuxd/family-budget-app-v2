@@ -1,13 +1,8 @@
 /**
  * AI 功能屏幕 - 完整实现
  * 
- * 展示所有 AI 功能：
- * 1. 语音记账 - 真实 Web Speech API 识别，直接创建记录
- * 2. 收据识别 - 真实摄像头拍照，直接创建记录
- * 3. 支出预测
- * 4. 财务建议
- * 
- * 使用当前登录用户的信息，无需再次登录
+ * 使用 BudgetContext 管理认证状态
+ * 直接使用当前登录用户的信息
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -21,12 +16,13 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { useAuth } from '../../hooks/use-auth';
-import SpeechRecognizer from '../../lib/speech-recognition';
-import { apiClient } from '../../lib/api-client';
+import { useBudget } from '@/lib/budget-context';
+import SpeechRecognizer from '@/lib/speech-recognition';
+import { apiClient } from '@/lib/api-client';
 
 export default function AIFeaturesScreen() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { currentUser, isAuthenticated } = useBudget();
+  
   const [activeTab, setActiveTab] = useState<'voice' | 'receipt' | 'prediction' | 'advice'>('voice');
   const [voiceResult, setVoiceResult] = useState<any>(null);
   const [receiptResult, setReceiptResult] = useState<any>(null);
@@ -50,37 +46,14 @@ export default function AIFeaturesScreen() {
     speechRecognizerRef.current = new SpeechRecognizer();
   }, []);
 
-  // 调试：打印用户信息
-  useEffect(() => {
-    console.log('AI Features - Auth Status:', {
-      isAuthenticated,
-      user: user ? { id: user.id, username: user.username } : null,
-      authLoading,
-    });
-  }, [isAuthenticated, user, authLoading]);
-
   // 检查用户是否登录
-  if (authLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>正在加载...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !currentUser) {
     return (
       <View style={styles.container}>
         <View style={styles.notAuthContainer}>
           <Text style={styles.notAuthTitle}>🔐 需要登录</Text>
           <Text style={styles.notAuthText}>
             请先在主页登录账号，然后使用 AI 功能
-          </Text>
-          <Text style={styles.debugText}>
-            当前状态: isAuthenticated={String(isAuthenticated)}, user={user ? '有' : '无'}
           </Text>
         </View>
       </View>
@@ -145,17 +118,15 @@ export default function AIFeaturesScreen() {
       return;
     }
 
-    if (!user?.id) {
+    if (!currentUser?.id) {
       Alert.alert('错误', '无法获取用户信息');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Processing speech with userId:', user.id);
-      
       const response = await apiClient.post('/ai-transaction/create-from-speech', {
-        userId: user.id,
+        userId: currentUser.id,
         text: text,
         type: 'expense',
       });
@@ -173,7 +144,6 @@ export default function AIFeaturesScreen() {
         Alert.alert('❌ 失败', response.error || '处理失败');
       }
     } catch (error) {
-      console.error('Speech processing error:', error);
       Alert.alert('❌ 错误', error instanceof Error ? error.message : '处理失败');
     } finally {
       setLoading(false);
@@ -232,14 +202,13 @@ export default function AIFeaturesScreen() {
       
       await handleProcessReceipt(dataUrl);
     } catch (err) {
-      console.error('拍摄照片错误:', err);
       Alert.alert('❌ 错误', '拍摄照片失败');
     }
   };
 
   // 处理收据识别 - 直接创建交易
   const handleProcessReceipt = async (imageData: string) => {
-    if (!user?.id) {
+    if (!currentUser?.id) {
       Alert.alert('错误', '无法获取用户信息');
       return;
     }
@@ -249,7 +218,7 @@ export default function AIFeaturesScreen() {
       const description = '收据图片数据';
       
       const response = await apiClient.post('/ai-transaction/create-from-receipt', {
-        userId: user.id,
+        userId: currentUser.id,
         description: description,
         type: 'expense',
       });
@@ -266,7 +235,6 @@ export default function AIFeaturesScreen() {
         Alert.alert('❌ 失败', response.error || '处理失败');
       }
     } catch (error) {
-      console.error('Receipt processing error:', error);
       Alert.alert('❌ 错误', error instanceof Error ? error.message : '处理失败');
     } finally {
       setLoading(false);
@@ -282,14 +250,14 @@ export default function AIFeaturesScreen() {
 
   // 生成支出预测
   const handlePredictExpense = async () => {
-    if (!user?.id) {
+    if (!currentUser?.id) {
       Alert.alert('错误', '无法获取用户信息');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await apiClient.get('/ai-simple/predict-expense', { userId: user.id, months: 6 });
+      const response = await apiClient.get('/ai-simple/predict-expense', { userId: currentUser.id, months: 6 });
       
       if (response.success) {
         setPredictions(response.predictions || []);
@@ -306,14 +274,14 @@ export default function AIFeaturesScreen() {
 
   // 生成财务建议
   const handleGenerateAdvice = async () => {
-    if (!user?.id) {
+    if (!currentUser?.id) {
       Alert.alert('错误', '无法获取用户信息');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await apiClient.get('/ai-simple/generate-advice', { userId: user.id });
+      const response = await apiClient.get('/ai-simple/generate-advice', { userId: currentUser.id });
       
       if (response.success) {
         setAdvice({
@@ -335,7 +303,7 @@ export default function AIFeaturesScreen() {
     <ScrollView style={styles.container}>
       {/* 用户状态条 */}
       <View style={styles.userBar}>
-        <Text style={styles.userText}>✅ 已登录: {user.username || user.name || '用户'}</Text>
+        <Text style={styles.userText}>✅ 已登录: {currentUser.displayName || currentUser.username || '用户'}</Text>
       </View>
 
       {/* 标题 */}
@@ -603,16 +571,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
   notAuthContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -631,12 +589,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 24,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 12,
-    textAlign: 'center',
   },
   userBar: {
     backgroundColor: '#E8F5E9',
