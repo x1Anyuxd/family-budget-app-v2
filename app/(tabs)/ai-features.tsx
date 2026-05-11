@@ -2,8 +2,8 @@
  * AI 功能屏幕 - 完整实现
  * 
  * 展示所有 AI 功能：
- * 1. 语音记账 - 真实 Web Speech API 识别
- * 2. 收据识别 - 真实摄像头拍照
+ * 1. 语音记账 - 真实 Web Speech API 识别，可直接创建记录
+ * 2. 收据识别 - 真实摄像头拍照，可直接创建记录
  * 3. 支出预测
  * 4. 财务建议
  */
@@ -18,12 +18,12 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '../../hooks/use-auth';
-import useAIFeatures from '../../hooks/use-ai-features';
-import { i18n } from '../../lib/i18n';
 import SpeechRecognizer from '../../lib/speech-recognition';
-import { apiClient } from '../../lib/api-client';
+import { apiClient, transactionApi } from '../../lib/api-client';
 
 export default function AIFeaturesScreen() {
   const { user } = useAuth();
@@ -37,6 +37,10 @@ export default function AIFeaturesScreen() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
+  const [transactionDescription, setTransactionDescription] = useState('');
+  const [cameraReady, setCameraReady] = useState(false);
   
   const speechRecognizerRef = useRef<SpeechRecognizer | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
@@ -132,17 +136,71 @@ export default function AIFeaturesScreen() {
     }
   };
 
+  // 创建交易记录
+  const handleCreateTransaction = async () => {
+    if (!voiceResult && !receiptResult) {
+      Alert.alert('错误', '没有识别结果');
+      return;
+    }
+
+    const result = voiceResult || receiptResult;
+    const userId = user?.id || 'guest';
+    const amount = result.amount || 0;
+    const category = result.category || 'other';
+    const description = transactionDescription || result.description || result.text || '';
+    const transactionDate = new Date().toISOString().split('T')[0];
+
+    if (amount <= 0) {
+      Alert.alert('错误', '金额必须大于 0');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await transactionApi.createTransaction(
+        userId,
+        transactionType,
+        amount,
+        category,
+        description,
+        transactionDate
+      );
+
+      if (response.success) {
+        Alert.alert('成功', `${transactionType === 'expense' ? '支出' : '收入'}记录已创建`);
+        setShowTransactionModal(false);
+        setTransactionDescription('');
+        setVoiceResult(null);
+        setReceiptResult(null);
+      } else {
+        Alert.alert('错误', response.error || '创建失败');
+      }
+    } catch (error) {
+      Alert.alert('错误', error instanceof Error ? error.message : '创建失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 开始摄像头
   const handleStartCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
       });
       videoStreamRef.current = stream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        // 等待视频加载
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+          setCameraReady(true);
+        };
       }
     } catch (err) {
       Alert.alert('错误', '无法访问摄像头，请检查权限');
@@ -151,15 +209,22 @@ export default function AIFeaturesScreen() {
 
   // 拍摄照片
   const handleCapturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      Alert.alert('错误', '摄像头未准备好');
+      return;
+    }
     
     try {
       const context = canvasRef.current.getContext('2d');
       if (!context) return;
       
-      canvasRef.current.width = videoRef.current.videoWidth;
-      canvasRef.current.height = videoRef.current.videoHeight;
-      context.drawImage(videoRef.current, 0, 0);
+      // 确保canvas尺寸与视频相同
+      const video = videoRef.current;
+      canvasRef.current.width = video.videoWidth || 640;
+      canvasRef.current.height = video.videoHeight || 480;
+      
+      // 绘制视频帧到canvas
+      context.drawImage(video, 0, 0, canvasRef.current.width, canvasRef.current.height);
       
       const dataUrl = canvasRef.current.toDataURL('image/jpeg');
       setCapturedImage(dataUrl);
@@ -169,10 +234,12 @@ export default function AIFeaturesScreen() {
         videoStreamRef.current.getTracks().forEach(track => track.stop());
         videoStreamRef.current = null;
       }
+      setCameraReady(false);
       
       // 处理收据
       await handleProcessReceipt(dataUrl);
     } catch (err) {
+      console.error('拍摄照片错误:', err);
       Alert.alert('错误', '拍摄照片失败');
     }
   };
@@ -210,6 +277,7 @@ export default function AIFeaturesScreen() {
   // 重新拍摄
   const handleRetakePhoto = async () => {
     setCapturedImage(null);
+    setCameraReady(false);
     await handleStartCamera();
   };
 
@@ -361,6 +429,14 @@ export default function AIFeaturesScreen() {
                   <Text style={styles.resultLabel}>置信度:</Text>
                   <Text style={styles.resultValue}>{(voiceResult.confidence * 100).toFixed(0)}%</Text>
                 </View>
+
+                {/* 创建记录按钮 */}
+                <TouchableOpacity
+                  style={styles.createButton}
+                  onPress={() => setShowTransactionModal(true)}
+                >
+                  <Text style={styles.createButtonText}>✅ 创建记录</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -380,13 +456,15 @@ export default function AIFeaturesScreen() {
                   ref={videoRef}
                   style={styles.video}
                   playsInline
+                  autoPlay
+                  muted
                 />
                 <canvas
                   ref={canvasRef}
                   style={{ display: 'none' }}
                 />
                 
-                {videoStreamRef.current ? (
+                {cameraReady ? (
                   <TouchableOpacity
                     style={[styles.button, loading && styles.buttonDisabled]}
                     onPress={handleCapturePhoto}
@@ -457,6 +535,14 @@ export default function AIFeaturesScreen() {
                   <Text style={styles.resultLabel}>置信度:</Text>
                   <Text style={styles.resultValue}>{(receiptResult.confidence * 100).toFixed(0)}%</Text>
                 </View>
+
+                {/* 创建记录按钮 */}
+                <TouchableOpacity
+                  style={styles.createButton}
+                  onPress={() => setShowTransactionModal(true)}
+                >
+                  <Text style={styles.createButtonText}>✅ 创建记录</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -548,6 +634,107 @@ export default function AIFeaturesScreen() {
           </View>
         )}
       </View>
+
+      {/* 创建交易模态框 */}
+      <Modal
+        visible={showTransactionModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTransactionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>创建交易记录</Text>
+
+            {/* 交易类型选择 */}
+            <View style={styles.typeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.typeButton,
+                  transactionType === 'expense' && styles.typeButtonActive,
+                ]}
+                onPress={() => setTransactionType('expense')}
+              >
+                <Text
+                  style={[
+                    styles.typeButtonText,
+                    transactionType === 'expense' && styles.typeButtonTextActive,
+                  ]}
+                >
+                  💰 支出
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.typeButton,
+                  transactionType === 'income' && styles.typeButtonActive,
+                ]}
+                onPress={() => setTransactionType('income')}
+              >
+                <Text
+                  style={[
+                    styles.typeButtonText,
+                    transactionType === 'income' && styles.typeButtonTextActive,
+                  ]}
+                >
+                  💵 收入
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 显示识别结果 */}
+            {(voiceResult || receiptResult) && (
+              <View style={styles.resultSummary}>
+                <Text style={styles.resultSummaryTitle}>识别信息</Text>
+                <View style={styles.resultSummaryItem}>
+                  <Text style={styles.resultSummaryLabel}>金额:</Text>
+                  <Text style={styles.resultSummaryValue}>
+                    ¥{(voiceResult?.amount || receiptResult?.amount || 0).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.resultSummaryItem}>
+                  <Text style={styles.resultSummaryLabel}>分类:</Text>
+                  <Text style={styles.resultSummaryValue}>
+                    {voiceResult?.category || receiptResult?.category || 'other'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* 备注输入 */}
+            <Text style={styles.inputLabel}>备注（可选）</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="添加交易备注..."
+              value={transactionDescription}
+              onChangeText={setTransactionDescription}
+              multiline
+              numberOfLines={3}
+            />
+
+            {/* 按钮 */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowTransactionModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
+                onPress={handleCreateTransaction}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>确认创建</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -721,6 +908,20 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
+  createButton: {
+    backgroundColor: '#34C759',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   predictionItem: {
     marginBottom: 12,
   },
@@ -762,5 +963,126 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
     lineHeight: 20,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 12,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  typeButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  resultSummary: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF',
+  },
+  resultSummaryTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  resultSummaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  resultSummaryLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  resultSummaryValue: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: '600',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 16,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  confirmButton: {
+    backgroundColor: '#34C759',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
