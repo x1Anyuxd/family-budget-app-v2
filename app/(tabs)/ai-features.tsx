@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../../hooks/use-auth';
 import useAIFeatures from '../../hooks/use-ai-features';
 import { i18n } from '../../lib/i18n';
+import { uploadAudioBlob, uploadImageBlob, dataUrlToBlob } from '../../lib/media-uploader';
 
 export default function AIFeaturesScreen() {
   const { user } = useAuth();
@@ -73,12 +74,19 @@ export default function AIFeaturesScreen() {
       
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        const audioUrl = URL.createObjectURL(audioBlob);
         
-        // 发送到后端进行识别
-        const result = await recognizeSpeech(audioUrl);
-        if (result) {
-          setVoiceResult(result);
+        // 上传音频到后端获取 URL
+        Alert.alert('提示', '正在上传录音...');
+        const audioUrl = await uploadAudioBlob(audioBlob);
+        
+        if (audioUrl) {
+          // 发送到后端进行识别
+          const result = await recognizeSpeech(audioUrl);
+          if (result) {
+            setVoiceResult(result);
+          }
+        } else {
+          Alert.alert('错误', '上传录音失败');
         }
         
         // 停止所有音频轨道
@@ -146,8 +154,8 @@ export default function AIFeaturesScreen() {
       canvasRef.current.height = videoRef.current.videoHeight;
       context.drawImage(videoRef.current, 0, 0);
       
-      const imageUrl = canvasRef.current.toDataURL('image/jpeg');
-      setCapturedImage(imageUrl);
+      const dataUrl = canvasRef.current.toDataURL('image/jpeg');
+      setCapturedImage(dataUrl);
       
       // 停止摄像头
       if (videoStreamRef.current) {
@@ -155,10 +163,19 @@ export default function AIFeaturesScreen() {
         videoStreamRef.current = null;
       }
       
-      // 发送到后端进行识别
-      const result = await recognizeReceipt(imageUrl);
-      if (result) {
-        setReceiptResult(result);
+      // 上传图片到后端获取 URL
+      Alert.alert('提示', '正在上传照片...');
+      const imageBlob = dataUrlToBlob(dataUrl);
+      const imageUrl = await uploadImageBlob(imageBlob);
+      
+      if (imageUrl) {
+        // 发送到后端进行识别
+        const result = await recognizeReceipt(imageUrl);
+        if (result) {
+          setReceiptResult(result);
+        }
+      } else {
+        Alert.alert('错误', '上传照片失败');
       }
     } catch (err) {
       Alert.alert('错误', '拍摄照片失败');
