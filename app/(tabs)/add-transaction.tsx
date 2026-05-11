@@ -210,22 +210,6 @@ export default function AddTransactionScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.cameraRow}>
-          <Pressable
-            onPress={handleTakePhoto}
-            style={({ pressed }) => [styles.cameraBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
-          >
-            <IconSymbol name="camera" size={20} color="#fff" />
-            <Text style={styles.cameraBtnText}>{i18n.addTransaction.takePhoto}</Text>
-          </Pressable>
-          <Pressable
-            onPress={handlePickImage}
-            style={({ pressed }) => [styles.cameraBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
-          >
-            <IconSymbol name="photo" size={20} color="#fff" />
-            <Text style={styles.cameraBtnText}>{i18n.addTransaction.selectPhoto}</Text>
-          </Pressable>
-        </View>
 
         <View style={[styles.typeSwitch, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           {(['expense', 'income'] as TransactionType[]).map((t) => (

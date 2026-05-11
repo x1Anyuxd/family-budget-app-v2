@@ -305,7 +305,6 @@ export default function RecordsScreen() {
         <View style={styles.emptyBox}>
           <IconSymbol name="note.text" size={48} color={colors.muted} />
           <Text style={[styles.emptyText, { color: colors.muted }]}>{i18n.records.noRecords}</Text>
-          <Text style={[styles.emptyHint, { color: colors.muted }]}>左划可编辑或删除</Text>
         </View>
       ) : (
         <FlatList
