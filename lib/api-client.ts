@@ -15,10 +15,12 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API 基础 URL - 根据环境调整
-// Web 浏览器：使用 localhost
-const API_BASE_URL = 'http://localhost:8080/api';
+// Web 浏览器：使用实际 IP 地址
+const API_BASE_URL = 'http://169.254.0.21:8080/api';
 // 物理设备：使用本机 IP 地址而不是 localhost
 // const API_BASE_URL = 'http://YOUR_MAC_IP:8080/api';
+// localhost 备用
+// const API_BASE_URL = 'http://localhost:8080/api';
 // Android 模拟器：使用 10.0.2.2（模拟器中访问宿主机的特殊地址）
 // const API_BASE_URL = 'http://10.0.2.2:8080/api';
 
