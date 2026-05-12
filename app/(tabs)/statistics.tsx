@@ -15,7 +15,7 @@ import { ScreenContainer } from '@/components/screen-container';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColors } from '@/hooks/use-colors';
 import { useBudget } from '@/lib/budget-context';
-import { exportStatisticsToExcel } from '@/lib/excel-export';
+import { exportStatisticsToExcel, exportTransactionsToExcel } from '@/lib/excel-export';
 import { getI18n } from '@/lib/i18n';
 import {
   formatAmount,
@@ -119,16 +119,8 @@ export default function StatisticsScreen() {
       Alert.alert(i18n.common.warning, i18n.statistics.noData);
       return;
     }
-    const success = await exportStatisticsToExcel(
-      categoryBreakdown.map((item) => ({
-        name: item.name,
-        amount: item.amount,
-        percentage: item.percentage,
-      })),
-      formatMonthLabel(month),
-      summary.income,
-      summary.expense,
-    );
+    // 导出详细交易记录而不是汇总数据
+    const success = await exportTransactionsToExcel(transactions, formatMonthLabel(month));
 
     Alert.alert(success ? i18n.common.success : i18n.common.warning, success ? i18n.statistics.exportSuccess : i18n.statistics.exportFailed);
   };
