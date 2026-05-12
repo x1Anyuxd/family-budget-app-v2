@@ -132,14 +132,7 @@ export default function BudgetScreen() {
   };
 
   const handleDeleteBudget = (budgetId: string) => {
-    Alert.alert(i18n.common.warning, i18n.records.deleteConfirm, [
-      { text: i18n.common.cancel, style: 'cancel' },
-      {
-        text: i18n.common.delete,
-        style: 'destructive',
-        onPress: () => deleteBudget(budgetId),
-      },
-    ]);
+    deleteBudget(budgetId);
   };
 
   return (
