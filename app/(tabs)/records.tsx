@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -106,18 +105,9 @@ export default function RecordsScreen() {
   }, [transactions, viewMode]);
 
   const handleDelete = useCallback((id: string) => {
-    Alert.alert(i18n.records.deleteTitle, i18n.records.deleteConfirm, [
-      { text: i18n.common.cancel, style: 'cancel' },
-      {
-        text: i18n.common.delete,
-        style: 'destructive',
-        onPress: () => {
-          deleteTransaction(id);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        },
-      },
-    ]);
-  }, [deleteTransaction, i18n.common.cancel, i18n.common.delete, i18n.records.deleteConfirm, i18n.records.deleteTitle]);
+    deleteTransaction(id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [deleteTransaction]);
 
   const openEditor = useCallback((transaction: Transaction) => {
     setEditingTransaction(transaction);
