@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as XLSX from 'xlsx';
 import type { BillTransferPayload, Transaction } from './types';
 import { getCategoryName } from './i18n-categories';
 
@@ -54,43 +53,58 @@ export async function exportLocalBills(payload: BillTransferPayload): Promise<bo
   }
 }
 
+/**
+ * 导出交易记录为 Excel 格式（CSV）
+ * @param transactions 交易记录数组
+ * @param locale 语言设置
+ */
 export async function exportToExcel(transactions: Transaction[], locale: string = 'zh'): Promise<boolean> {
   try {
-    // 准备 Excel 数据
-    const excelData = transactions.map(transaction => ({
-      '日期': new Date(transaction.date).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US'),
-      '类目': getCategoryName(transaction.categoryId, locale),
-      '类型': transaction.type === 'income' ? (locale === 'zh' ? '收入' : 'Income') : (locale === 'zh' ? '支出' : 'Expense'),
-      '金额': transaction.amount,
-      '备注': transaction.description || '',
-    }));
+    if (!transactions || transactions.length === 0) {
+      console.warn('No transactions to export');
+      return false;
+    }
 
-    // 创建工作簿
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+    // 准备 CSV 数据
+    const headers = ['日期', '类目', '类型', '金额', '备注'];
+    const rows = transactions.map(transaction => {
+      const date = new Date(transaction.date).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US');
+      const category = getCategoryName(transaction.categoryId, locale);
+      const type = transaction.type === 'income' ? (locale === 'zh' ? '收入' : 'Income') : (locale === 'zh' ? '支出' : 'Expense');
+      const amount = transaction.amount;
+      const description = (transaction.description || '').replace(/"/g, '""'); // 转义双引号
+      
+      return [
+        `"${date}"`,
+        `"${category}"`,
+        `"${type}"`,
+        amount,
+        `"${description}"`,
+      ].join(',');
+    });
 
-    // 设置列宽
-    ws['!cols'] = [
-      { wch: 15 }, // 日期
-      { wch: 12 }, // 类目
-      { wch: 10 }, // 类型
-      { wch: 10 }, // 金额
-      { wch: 20 }, // 备注
-    ];
+    // 生成 CSV 内容
+    const csvContent = [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
 
     // 导出文件
     if (Platform.OS === 'web') {
-      const fileName = buildFileName('xlsx');
-      XLSX.writeFile(wb, fileName);
+      const fileName = buildFileName('csv');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       return true;
     }
 
-    // 对于 Native 平台，生成 CSV 作为备选方案
-    const csv = XLSX.utils.sheet_to_csv(ws);
+    // 对于 Native 平台
     const docDir = (FileSystem as any).documentDirectory || '';
     const filePath = `${docDir}${buildFileName('csv')}`;
-    await FileSystem.writeAsStringAsync(filePath, csv);
+    await FileSystem.writeAsStringAsync(filePath, csvContent);
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(filePath, {
         mimeType: 'text/csv',
