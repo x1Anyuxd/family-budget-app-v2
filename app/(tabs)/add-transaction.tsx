@@ -19,6 +19,8 @@ import { getCategoryName } from '@/lib/i18n-categories';
 import { takePhoto, pickImageFromLibrary, ensureBase64 } from '@/lib/camera-service';
 import { trpc } from '@/lib/trpc';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { Platform } from 'react-native';
+import SpeechRecognizer from '@/lib/speech-recognition';
 
 
 function todayStr(): string {
@@ -38,7 +40,10 @@ export default function AddTransactionScreen() {
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [speechRecognizer] = useState(() => new SpeechRecognizer());
+  const parseVoiceMutation = trpc.ai.parseVoiceCommand.useMutation();
 
   // 每次页面获得焦点时清空表单数据
   useFocusEffect(
@@ -186,6 +191,56 @@ export default function AddTransactionScreen() {
     }
   }, [analyzeReceiptMutation, router, i18n.addTransaction]);
 
+  const handleVoiceInput = useCallback(() => {
+    if (isListening) {
+      const text = speechRecognizer.stopListening();
+      setIsListening(false);
+      if (text) {
+        handleParseVoice(text);
+      }
+    } else {
+      if (!speechRecognizer.isSupported()) {
+        Alert.alert('提示', '当前浏览器不支持语音识别');
+        return;
+      }
+      setIsListening(true);
+      speechRecognizer.startListening(
+        (transcript, isFinal) => {
+          if (isFinal) {
+            setIsListening(false);
+            handleParseVoice(transcript);
+          }
+        },
+        (error) => {
+          setIsListening(false);
+          Alert.alert('语音识别错误', error);
+        }
+      );
+    }
+  }, [isListening, speechRecognizer]);
+
+  const handleParseVoice = async (text: string) => {
+    try {
+      setIsAnalyzing(true);
+      const result = await parseVoiceMutation.mutateAsync({ text });
+      setIsAnalyzing(false);
+      
+      if (result.success && result.data) {
+        const { amount: aiAmount, categoryId, type: aiType, note: aiNote, date: aiDate } = result.data;
+        if (aiAmount) setAmount(aiAmount.toString());
+        if (categoryId) setSelectedCat(categoryId);
+        if (aiType) setType(aiType);
+        if (aiNote) setNote(aiNote);
+        if (aiDate) setDate(aiDate);
+        
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      setIsAnalyzing(false);
+      Alert.alert('AI 解析失败', '无法解析您的语音指令');
+    }
+  };
+
   if (isAnalyzing) {
     return (
       <ScreenContainer containerClassName="bg-background">
@@ -204,9 +259,20 @@ export default function AddTransactionScreen() {
           <IconSymbol name="xmark" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>{i18n.addTransaction.title}</Text>
-        <Pressable onPress={handleSave} style={({ pressed }) => [styles.saveBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}> 
-          <Text style={styles.saveBtnText}>{i18n.addTransaction.save}</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable 
+            onPress={handleVoiceInput} 
+            style={({ pressed }) => [
+              styles.voiceBtn, 
+              { backgroundColor: isListening ? colors.error : colors.surface, borderColor: colors.border, opacity: pressed ? 0.8 : 1 }
+            ]}
+          > 
+            <IconSymbol name={isListening ? "stop.fill" : "mic.fill"} size={20} color={isListening ? "#fff" : colors.primary} />
+          </Pressable>
+          <Pressable onPress={handleSave} style={({ pressed }) => [styles.saveBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}> 
+            <Text style={styles.saveBtnText}>{i18n.addTransaction.save}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -265,13 +331,36 @@ export default function AddTransactionScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.muted }]}>{i18n.addTransaction.date}</Text>
-          <Pressable
+          {Platform.OS === 'web' ? (
+            <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <IconSymbol name="calendar" size={18} color={colors.muted} />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  color: colors.foreground,
+                  fontSize: '15px',
+                  outline: 'none',
+                  textAlign: 'center',
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  width: '100%',
+                }}
+              />
+            </View>
+          ) : (
+            <Pressable
               onPress={() => setShowDatePicker(true)}
               style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
               <IconSymbol name="calendar" size={18} color={colors.muted} />
               <Text style={[styles.textInput, { color: colors.foreground }]}>{date}</Text>
             </Pressable>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -360,6 +449,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  voiceBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cameraRow: {
     flexDirection: 'row',

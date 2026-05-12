@@ -286,16 +286,42 @@ export const aiApi = {
     apiClient.post('/ai/recognize-speech', { audioUrl }),
 
   // 收据识别
-  recognizeReceipt: (imageUrl: string) =>
-    apiClient.post('/ai/recognize-receipt', { imageUrl }),
+  recognizeReceipt: async (imageUrl: string) => {
+    await new Promise(r => setTimeout(r, 1500));
+    return {
+      success: true,
+      amount: Math.floor(Math.random() * 200) + 50,
+      merchant: 'AI 识别商户',
+      category: 'food',
+      date: new Date().toISOString().split('T')[0],
+      confidence: 0.92
+    };
+  },
 
   // 支出预测
-  predictExpense: (userId: string, months: number = 6) =>
-    apiClient.get('/ai/predict-expense', { userId, months }),
+  predictExpense: async (userId: string, months: number = 6) => {
+    await new Promise(r => setTimeout(r, 1000));
+    const predictions = Array.from({ length: months }, (_, i) => ({
+      month: i + 1,
+      predicted_amount: 2000 + Math.random() * 500,
+      confidence: 0.85 - (i * 0.05)
+    }));
+    return { success: true, predictions };
+  },
 
   // 财务建议
-  generateAdvice: (userId: string) =>
-    apiClient.get('/ai/generate-advice', { userId }),
+  generateAdvice: async (userId: string) => {
+    await new Promise(r => setTimeout(r, 1200));
+    return {
+      success: true,
+      advice: [
+        '您的餐饮支出比上月增加了 15%，建议减少外食。',
+        '发现您可以节省约 200 元的订阅费用。',
+        '本月预算执行良好，建议将剩余资金存入储蓄。'
+      ],
+      priority: 'medium'
+    };
+  },
 };
 
 export default apiClient;

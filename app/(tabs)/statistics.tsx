@@ -23,6 +23,7 @@ import {
   getCategoryById,
   getCurrentMonth,
 } from '@/lib/types';
+import { getCategoryName } from '@/lib/i18n-categories';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BAR_HEIGHT = 160;
@@ -100,7 +101,7 @@ export default function StatisticsScreen() {
         const category = getCategoryById(id);
         return {
           id,
-          name: category?.name ?? '其他',
+          name: getCategoryName(id, settings.locale),
           amount,
           color: category?.color ?? '#999',
           icon: category?.icon ?? 'more-horiz',

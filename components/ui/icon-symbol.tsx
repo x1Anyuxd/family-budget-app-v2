@@ -41,6 +41,8 @@ const iconMap = {
   pencil: 'edit',
   trash: 'delete',
   'arrow.left': 'arrow-back',
+  'mic.fill': 'mic',
+  'stop.fill': 'stop',
 } as const satisfies Record<string, ComponentProps<typeof MaterialIcons>['name']>;
 
 type IconName = keyof typeof iconMap | ComponentProps<typeof MaterialIcons>['name'];
