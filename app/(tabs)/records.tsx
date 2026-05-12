@@ -16,7 +16,7 @@ import { SwipeDeleteRow } from '@/components/swipe-delete-row';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColors } from '@/hooks/use-colors';
 import { useBudget } from '@/lib/budget-context';
-import { exportLocalBills, importLocalBills } from '@/lib/bill-transfer';
+import { exportLocalBills, importLocalBills, exportToExcel } from '@/lib/bill-transfer';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPickerModule from 'expo-document-picker';
@@ -182,6 +182,12 @@ export default function RecordsScreen() {
       Alert.alert(i18n.common.warning, i18n.records.exportFailed);
     }
   }, [getExportPayload, i18n.common.success, i18n.common.warning, i18n.records.exportFailed, i18n.records.exportSuccess, i18n.records.exportJSON]);
+
+  const handleExportExcel = useCallback(async () => {
+    setTransferMenuVisible(false);
+    const success = await exportToExcel(transactions, settings.locale);
+    Alert.alert(success ? i18n.common.success : i18n.common.warning, success ? i18n.records.exportSuccess : i18n.records.exportFailed);
+  }, [transactions, settings.locale, i18n.common.success, i18n.common.warning, i18n.records.exportFailed, i18n.records.exportSuccess]);
 
   const handleImportBills = useCallback(async () => {
     setTransferMenuVisible(false);
@@ -355,6 +361,10 @@ export default function RecordsScreen() {
             <Pressable onPress={handleExportBills} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <IconSymbol name="arrow.down.doc" size={18} color={colors.primary} />
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.exportBills}</Text>
+            </Pressable>
+            <Pressable onPress={handleExportExcel} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <IconSymbol name="doc.text" size={18} color={colors.primary} />
+              <Text style={[styles.menuActionText, { color: colors.foreground }]}>导出为 Excel</Text>
             </Pressable>
             <Pressable onPress={handleImportBills} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <IconSymbol name="plus.circle.fill" size={18} color={colors.primary} />
