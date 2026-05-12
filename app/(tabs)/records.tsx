@@ -362,10 +362,7 @@ export default function RecordsScreen() {
               <IconSymbol name="arrow.down.doc" size={18} color={colors.primary} />
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.exportBills}</Text>
             </Pressable>
-            <Pressable onPress={handleExportExcel} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <IconSymbol name="doc.text" size={18} color={colors.primary} />
-              <Text style={[styles.menuActionText, { color: colors.foreground }]}>导出为 Excel</Text>
-            </Pressable>
+
             <Pressable onPress={handleImportBills} style={[styles.menuAction, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <IconSymbol name="plus.circle.fill" size={18} color={colors.primary} />
               <Text style={[styles.menuActionText, { color: colors.foreground }]}>{i18n.records.importBills}</Text>

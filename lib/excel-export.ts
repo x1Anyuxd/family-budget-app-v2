@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 
 import { Transaction, formatAmount, formatDate, getCategoryById } from './types';
+import { getCategoryName } from './i18n-categories';
 
 function downloadBase64FileOnWeb(base64: string, fileName: string, mimeType: string): boolean {
   if (typeof window === 'undefined') return false;
@@ -56,10 +57,9 @@ export async function exportTransactionsToExcel(transactions: Transaction[], mon
     if (transactions.length === 0) return false;
 
     const data = transactions.map((tx) => {
-      const category = getCategoryById(tx.categoryId);
       return {
         日期: formatDate(tx.date),
-        分类: category?.name || '未知',
+        分类: getCategoryName(tx.categoryId, 'zh'),
         类型: tx.type === 'income' ? '收入' : '支出',
         金额: formatAmount(tx.amount),
         备注: tx.note || '',
