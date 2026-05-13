@@ -1,0 +1,240 @@
+direction: down
+
+# 客户端层
+client_layer: {
+  label: "客户端层"
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#999"
+  }
+
+  web_app: {
+    label: "Web 应用\nReact Native Web\nExpo Router"
+    style: {
+      fill: "#E8F4F8"
+      stroke: "#666"
+    }
+  }
+
+  mobile_app: {
+    label: "移动应用\niOS / Android\nExpo"
+    style: {
+      fill: "#E8F4F8"
+      stroke: "#666"
+    }
+  }
+
+  local_storage: {
+    label: "本地存储\nAsyncStorage"
+    style: {
+      fill: "#E8F4F8"
+      stroke: "#666"
+    }
+  }
+
+  web_app -> local_storage
+  mobile_app -> local_storage
+}
+
+# 认证层
+auth_layer: {
+  label: "认证与授权"
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#999"
+  }
+
+  auth_service: {
+    label: "认证服务\nJWT Token\nCookie Session"
+    style: {
+      fill: "#FFE8E8"
+      stroke: "#666"
+    }
+  }
+
+  oauth: {
+    label: "OAuth 集成\n(可选)"
+    style: {
+      fill: "#FFE8E8"
+      stroke: "#666"
+    }
+  }
+
+  auth_service -> oauth
+}
+
+# 业务层
+business_layer: {
+  label: "业务服务层 (Express + tRPC)"
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#999"
+  }
+
+  account_service: {
+    label: "账户管理\n用户信息/密码/头像"
+    style: {
+      fill: "#F0E8F8"
+      stroke: "#666"
+    }
+  }
+
+  transaction_service: {
+    label: "交易管理\n记录/编辑/删除"
+    style: {
+      fill: "#F0E8F8"
+      stroke: "#666"
+    }
+  }
+
+  budget_service: {
+    label: "预算管理\n预算设置/预警"
+    style: {
+      fill: "#F0E8F8"
+      stroke: "#666"
+    }
+  }
+
+  category_service: {
+    label: "分类管理\n分类维护/统计"
+    style: {
+      fill: "#F0E8F8"
+      stroke: "#666"
+    }
+  }
+
+  export_service: {
+    label: "导出服务\nExcel/JSON导出"
+    style: {
+      fill: "#F0E8F8"
+      stroke: "#666"
+    }
+  }
+
+  account_service -> transaction_service
+  account_service -> budget_service
+  transaction_service -> category_service
+  transaction_service -> export_service
+}
+
+# 数据访问层
+data_layer: {
+  label: "数据访问层 (Drizzle ORM)"
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#999"
+  }
+
+  user_dao: {
+    label: "用户数据访问\nUser Repository"
+    style: {
+      fill: "#F8F8E8"
+      stroke: "#666"
+    }
+  }
+
+  transaction_dao: {
+    label: "交易数据访问\nTransaction Repository"
+    style: {
+      fill: "#F8F8E8"
+      stroke: "#666"
+    }
+  }
+
+  budget_dao: {
+    label: "预算数据访问\nBudget Repository"
+    style: {
+      fill: "#F8F8E8"
+      stroke: "#666"
+    }
+  }
+
+  user_dao -> transaction_dao
+  transaction_dao -> budget_dao
+}
+
+# 数据库层
+database_layer: {
+  label: "数据库层"
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#999"
+  }
+
+  mysql_db: {
+    label: "MySQL / TiDB\n用户表/交易表\n预算表/分类表"
+    style: {
+      fill: "#F8F0E8"
+      stroke: "#666"
+    }
+  }
+
+  cache: {
+    label: "缓存层 (可选)\nRedis"
+    style: {
+      fill: "#F8F0E8"
+      stroke: "#666"
+    }
+  }
+
+  mysql_db -> cache
+}
+
+# 外部服务
+external_layer: {
+  label: "外部服务与工具"
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#999"
+  }
+
+  file_storage: {
+    label: "文件存储\nS3 / OSS"
+    style: {
+      fill: "#E8F8E8"
+      stroke: "#666"
+    }
+  }
+
+  notification: {
+    label: "通知服务\nPush Notification"
+    style: {
+      fill: "#E8F8E8"
+      stroke: "#666"
+    }
+  }
+
+  analytics: {
+    label: "数据分析\nGoogle Analytics"
+    style: {
+      fill: "#E8F8E8"
+      stroke: "#666"
+    }
+  }
+
+  file_storage -> notification
+  notification -> analytics
+}
+
+# 层级连接
+client_layer -> auth_layer
+auth_layer -> business_layer
+business_layer -> data_layer
+data_layer -> database_layer
+business_layer -> external_layer
+
+# 技术栈标注
+tech_stack: {
+  label: "技术栈"
+  style: {
+    fill: "#FFFACD"
+    stroke: "#DAA520"
+  }
+
+  frontend: "Frontend: React 19 + React Native + Expo Router + TailwindCSS"
+  backend: "Backend: Express 4 + tRPC 11 + Node.js"
+  orm: "ORM: Drizzle ORM"
+  db: "Database: MySQL / TiDB"
+  auth: "Auth: JWT + Cookie"
+  package_manager: "Package Manager: pnpm"
+}
