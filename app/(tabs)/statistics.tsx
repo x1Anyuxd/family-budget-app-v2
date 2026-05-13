@@ -27,20 +27,7 @@ import { getCategoryName } from '@/lib/i18n-categories';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BAR_HEIGHT = 160;
-const CHART_WIDTH = Math.max(SCREEN_WIDTH - 40, 280);
-
-function useResponsiveWidth() {
-  const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
-  
-  React.useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setScreenWidth(window.width);
-    });
-    return () => subscription?.remove();
-  }, []);
-  
-  return screenWidth;
-}
+const CHART_WIDTH = SCREEN_WIDTH - 40;
 
 function prevMonth(month: string): string {
   const [year, m] = month.split('-').map(Number);
@@ -176,22 +163,23 @@ export default function StatisticsScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>{i18n.statistics.weeklyTrend}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_HEIGHT + 32, marginTop: 12, width: '100%' }}>
-            {weekLabels.map((label, index) => {
-              const expenseHeight = (weekly.expense[index] / maxBar) * BAR_HEIGHT;
-              const incomeHeight = (weekly.income[index] / maxBar) * BAR_HEIGHT;
-              return (
-                <View key={label} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: BAR_HEIGHT }}
-                    collapsable={false}>
-                    <View style={{ width: '40%', height: Math.max(expenseHeight, 2), backgroundColor: colors.error, borderRadius: 4 }} />
-                    <View style={{ width: '40%', height: Math.max(incomeHeight, 2), backgroundColor: colors.success, borderRadius: 4 }} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_HEIGHT + 32, paddingHorizontal: 16, gap: 12 }}>
+              {weekLabels.map((label, index) => {
+                const expenseHeight = (weekly.expense[index] / maxBar) * BAR_HEIGHT;
+                const incomeHeight = (weekly.income[index] / maxBar) * BAR_HEIGHT;
+                return (
+                  <View key={label} style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: BAR_HEIGHT }}>
+                      <View style={{ width: 12, height: Math.max(expenseHeight, 2), backgroundColor: colors.error, borderRadius: 4 }} />
+                      <View style={{ width: 12, height: Math.max(incomeHeight, 2), backgroundColor: colors.success, borderRadius: 4 }} />
+                    </View>
+                    <Text style={{ fontSize: 10, color: colors.muted, marginTop: 6 }}>{label}</Text>
                   </View>
-                  <Text style={{ fontSize: 10, color: colors.muted, marginTop: 6 }}>{label}</Text>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          </ScrollView>
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.error }]} />
