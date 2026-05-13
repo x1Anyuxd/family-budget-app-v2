@@ -163,23 +163,21 @@ export default function StatisticsScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>{i18n.statistics.weeklyTrend}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_HEIGHT + 32, paddingHorizontal: 16, gap: 12 }}>
-              {weekLabels.map((label, index) => {
-                const expenseHeight = (weekly.expense[index] / maxBar) * BAR_HEIGHT;
-                const incomeHeight = (weekly.income[index] / maxBar) * BAR_HEIGHT;
-                return (
-                  <View key={label} style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: BAR_HEIGHT }}>
-                      <View style={{ width: 12, height: Math.max(expenseHeight, 2), backgroundColor: colors.error, borderRadius: 4 }} />
-                      <View style={{ width: 12, height: Math.max(incomeHeight, 2), backgroundColor: colors.success, borderRadius: 4 }} />
-                    </View>
-                    <Text style={{ fontSize: 10, color: colors.muted, marginTop: 6 }}>{label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_HEIGHT + 32, marginTop: 12, width: '100%' }}>
+            {weekLabels.map((label, index) => {
+              const expenseHeight = (weekly.expense[index] / maxBar) * BAR_HEIGHT;
+              const incomeHeight = (weekly.income[index] / maxBar) * BAR_HEIGHT;
+              return (
+                <View key={label} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: BAR_HEIGHT }}>
+                    <View style={{ width: 12, height: Math.max(expenseHeight, 2), backgroundColor: colors.error, borderRadius: 4 }} />
+                    <View style={{ width: 12, height: Math.max(incomeHeight, 2), backgroundColor: colors.success, borderRadius: 4 }} />
                   </View>
-                );
-              })}
-            </View>
-          </ScrollView>
+                  <Text style={{ fontSize: 10, color: colors.muted, marginTop: 6 }}>{label}</Text>
+                </View>
+              );
+            })}
+          </View>
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.error }]} />
