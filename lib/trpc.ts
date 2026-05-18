@@ -85,11 +85,16 @@ export const trpc: any = {
           // 识别月日 (支持中文和数字)
           const absDateMatch = rawText.match(/([0-9一二三四五六七八九十百]+)\s*月\s*([0-9一二三四五六七八九十]+)\s*[号日]?/);
           if (absDateMatch) {
-            const month = cnToNum(absDateMatch[1]) - 1;
+            const month = cnToNum(absDateMatch[1]);
             const day = cnToNum(absDateMatch[2]);
-            if (!isNaN(month) && !isNaN(day)) {
-              date.setMonth(month);
-              date.setDate(day);
+            if (!isNaN(month) && !isNaN(day) && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+              // 重新初始化日期对象，确保只设置指定的年月日
+              const today = new Date();
+              date = new Date(today.getFullYear(), month - 1, day);
+              // 如果解析的月份大于当前月份，则假设是去年
+              if (month > today.getMonth() + 1) {
+                date.setFullYear(today.getFullYear() - 1);
+              }
               textForAmount = textForAmount.replace(absDateMatch[0], ' ');
             }
           }
@@ -98,7 +103,10 @@ export const trpc: any = {
           const relativeDates: Record<string, number> = { '今天': 0, '昨天': -1, '前天': -2, '上周': -7 };
           for (const [key, offset] of Object.entries(relativeDates)) {
             if (rawText.includes(key)) {
-              date.setDate(date.getDate() + offset);
+              // 只在没有识别到绝对日期时才处理相对日期
+              if (!absDateMatch) {
+                date.setDate(date.getDate() + offset);
+              }
               textForAmount = textForAmount.replace(key, ' ');
             }
           }
