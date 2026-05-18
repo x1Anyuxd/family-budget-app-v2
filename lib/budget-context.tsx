@@ -118,13 +118,15 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
       return { ...state, currentUserId: action.userId };
     case 'LOGOUT':
       return { ...state, currentUserId: null };
-    case 'UPDATE_PROFILE':
-      return {
-        ...state,
-        users: state.users.map((user) =>
-          user.id === action.userId ? { ...user, ...action.patch } : user,
-        ),
-      };
+    case 'UPDATE_PROFILE': {
+      const updatedUsers = state.users.map((user) =>
+        user.id === action.userId ? { ...user, ...action.patch } : user,
+      );
+      const newState = { ...state, users: updatedUsers };
+      // Persist updated user data to AsyncStorage
+      saveState(newState).catch((error) => console.error('Failed to save profile update:', error));
+      return newState;
+    }
     case 'UPDATE_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.patch } };
     case 'ADD_MESSAGES':
@@ -568,16 +570,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (patch: Partial<LocalUser>) => {
     if (!currentUser) return;
-    // Normalize avatarUri for cross-platform compatibility
-    if (patch.avatarUri && Platform.OS === 'web' && patch.avatarUri.startsWith('data:')) {
-      // On web, convert data URL to base64-only format for better native compatibility
-      // Extract base64 part from data URL
-      const base64Match = patch.avatarUri.match(/;base64,(.+)$/);
-      if (base64Match) {
-        // Store as data URL but ensure it's properly formatted
-        patch.avatarUri = patch.avatarUri;
-      }
-    }
+    // Update profile and ensure data is persisted
     dispatch({ type: 'UPDATE_PROFILE', userId: currentUser.id, patch });
   }, [currentUser]);
 

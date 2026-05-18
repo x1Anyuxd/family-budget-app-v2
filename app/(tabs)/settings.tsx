@@ -122,10 +122,20 @@ export default function SettingsScreen() {
   };
 
   const handlePickAvatar = async () => {
-    const image = await pickImageFromLibrary();
-    if (!image) return;
-    await updateProfile({ avatarUri: image.uri });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const image = await pickImageFromLibrary();
+      if (!image) {
+        console.log('No image selected');
+        return;
+      }
+      console.log('Avatar selected:', image.uri.substring(0, 100));
+      await updateProfile({ avatarUri: image.uri });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Alert.alert(i18n.common.success, i18n.messages.profileSaved);
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      Alert.alert(i18n.common.error, 'Failed to upload avatar');
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -282,7 +292,13 @@ export default function SettingsScreen() {
             <View style={styles.rowBetween}>
               <View style={styles.profileSummaryWrap}>
                 {currentUser?.avatarUri ? (
-                  <Image source={{ uri: currentUser.avatarUri }} style={styles.summaryAvatar} onError={() => console.warn('Failed to load avatar in settings:', currentUser.avatarUri)} />
+                  <Image 
+                    source={{ uri: currentUser.avatarUri }} 
+                    style={styles.summaryAvatar} 
+                    onError={(error) => {
+                      console.warn('Failed to load avatar in summary:', currentUser.avatarUri, error);
+                    }}
+                  />
                 ) : (
                   <View style={[styles.summaryAvatar, { backgroundColor: colors.background, borderColor: colors.border }]}> 
                     <IconSymbol name="person.crop.circle" size={34} color={colors.primary} />

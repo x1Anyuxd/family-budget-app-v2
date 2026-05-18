@@ -33,13 +33,20 @@ export async function takePhoto(): Promise<PickedImage | null> {
   const result = await ImagePicker.launchCameraAsync({
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.5,
+    quality: 0.8,
     base64: true,
   });
   if (result.canceled) return null;
   const asset = result.assets[0];
+  
+  // Convert to base64 data URL for persistence
+  let uri = asset.uri;
+  if (asset.base64) {
+    uri = `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
+  }
+  
   return {
-    uri: asset.uri,
+    uri,
     base64: asset.base64 ?? undefined,
     mimeType: asset.mimeType ?? 'image/jpeg',
   };
@@ -59,15 +66,12 @@ export async function pickImageFromLibrary(): Promise<PickedImage | null> {
         }
         try {
           const base64 = await fileToBase64(file);
-          const reader = new FileReader();
-          reader.onload = (event: any) => {
-            resolve({
-              uri: event.target.result,
-              base64,
-              mimeType: file.type || 'image/jpeg',
-            });
-          };
-          reader.readAsDataURL(file);
+          const dataUrl = `data:${file.type || 'image/jpeg'};base64,${base64}`;
+          resolve({
+            uri: dataUrl,
+            base64,
+            mimeType: file.type || 'image/jpeg',
+          });
         } catch (error) {
           console.error('Error reading file:', error);
           resolve(null);
@@ -84,14 +88,24 @@ export async function pickImageFromLibrary(): Promise<PickedImage | null> {
   const result = await ImagePicker.launchImageLibraryAsync({
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.5,
+    quality: 0.8,
     base64: true,
   });
   if (result.canceled) return null;
   const asset = result.assets[0];
+  
+  // For native platforms, convert URI to base64 data URL for persistence
+  let uri = asset.uri;
+  let base64 = asset.base64;
+  
+  if (base64) {
+    // Convert to data URL for better cross-platform persistence
+    uri = `data:${asset.mimeType || 'image/jpeg'};base64,${base64}`;
+  }
+  
   return {
-    uri: asset.uri,
-    base64: asset.base64 ?? undefined,
+    uri,
+    base64: base64 ?? undefined,
     mimeType: asset.mimeType ?? 'image/jpeg',
   };
 }
