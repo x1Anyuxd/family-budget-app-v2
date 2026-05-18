@@ -118,15 +118,13 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
       return { ...state, currentUserId: action.userId };
     case 'LOGOUT':
       return { ...state, currentUserId: null };
-    case 'UPDATE_PROFILE': {
-      const updatedUsers = state.users.map((user) =>
-        user.id === action.userId ? { ...user, ...action.patch } : user,
-      );
-      const newState = { ...state, users: updatedUsers };
-      // Persist updated user data to AsyncStorage
-      saveState(newState).catch((error) => console.error('Failed to save profile update:', error));
-      return newState;
-    }
+    case 'UPDATE_PROFILE':
+      return {
+        ...state,
+        users: state.users.map((user) =>
+          user.id === action.userId ? { ...user, ...action.patch } : user,
+        ),
+      };
     case 'UPDATE_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.patch } };
     case 'ADD_MESSAGES':
