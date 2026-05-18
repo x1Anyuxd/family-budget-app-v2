@@ -187,8 +187,13 @@ export default function RecordsScreen() {
       Alert.alert(i18n.common.warning, i18n.records.importFailed);
       return;
     }
-    await importBills(payload);
-    Alert.alert(i18n.common.success, i18n.records.importSuccess);
+    try {
+      await importBills(payload);
+      Alert.alert(i18n.common.success, i18n.records.importSuccess);
+    } catch (error) {
+      console.error('Failed to import bills', error);
+      Alert.alert(i18n.common.warning, i18n.records.importFailed);
+    }
   }, [i18n.common.success, i18n.common.warning, i18n.records.importFailed, i18n.records.importSuccess, importBills]);
 
   const handleImportJSON = useCallback(async () => {
@@ -203,22 +208,31 @@ export default function RecordsScreen() {
       const fileContent = await FileSystem.readAsStringAsync(result.assets[0].uri);
       const jsonData = JSON.parse(fileContent);
       
-      if (!Array.isArray(jsonData)) {
+      let payload: any;
+      if (Array.isArray(jsonData)) {
+        payload = {
+          transactions: jsonData,
+          budgets: [],
+        };
+      } else if (jsonData.transactions && jsonData.budgets) {
+        payload = jsonData;
+      } else {
         Alert.alert(i18n.common.warning, i18n.records.invalidJSONFormat || 'Invalid JSON format');
         return;
       }
 
-      let importedCount = 0;
-      for (const item of jsonData) {
-        if (item.type && item.amount && item.categoryId && item.date) {
-          importedCount++;
-        }
+      if (!Array.isArray(payload.transactions) || !Array.isArray(payload.budgets)) {
+        Alert.alert(i18n.common.warning, i18n.records.invalidJSONFormat || 'Invalid JSON format');
+        return;
       }
-      Alert.alert(i18n.common.success, `${i18n.records.importSuccess} (${importedCount} items)`);
+
+      await importBills(payload);
+      Alert.alert(i18n.common.success, `${i18n.records.importSuccess} (${payload.transactions.length} items)`);
     } catch (error) {
+      console.error('Failed to import JSON', error);
       Alert.alert(i18n.common.warning, i18n.records.importFailed);
     }
-  }, [i18n]);
+  }, [i18n, importBills]);
 
   const renderGroup = useCallback(({ item }: { item: GroupedDay }) => {
     const [, , day] = item.date.split('-');

@@ -648,11 +648,18 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser?.displayName, state.budgets, state.currentUserId, state.transactions]);
 
   const importBills = useCallback(async (payload: BillTransferPayload) => {
-    dispatch({
-      type: 'MERGE_IMPORTED_BILLS',
-      payload,
-      userId: currentUser?.id ?? null,
-      userName: currentUser?.displayName ?? currentUser?.username,
+    return new Promise<void>((resolve) => {
+      dispatch({
+        type: 'MERGE_IMPORTED_BILLS',
+        payload,
+        userId: currentUser?.id ?? null,
+        userName: currentUser?.displayName ?? currentUser?.username,
+      });
+      // 等待 React 完成状态更新，然后再等待 AsyncStorage 写入完成
+      // 使用 setTimeout 确保状态更新和持久化完成
+      setTimeout(() => {
+        resolve();
+      }, 100);
     });
   }, [currentUser]);
 

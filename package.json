@@ -1,7 +1,8 @@
 {
-  "name": "app-template",
+  "name": "dailybudget",
   "version": "1.0.0",
-  "private": true,
+  "description": "A daily budget management application with smart expense tracking and multi-device sync",
+  "private": false,
   "main": "expo-router/entry",
   "scripts": {
     "dev": "concurrently -k \"pnpm dev:server\" \"pnpm dev:metro\"",
