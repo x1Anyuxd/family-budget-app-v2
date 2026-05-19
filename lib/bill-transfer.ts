@@ -135,11 +135,29 @@ export async function importLocalBills(): Promise<BillTransferPayload | null> {
           }
           try {
             const text = await file.text();
-            const parsed = JSON.parse(text) as BillTransferPayload;
-            if (!parsed || !Array.isArray(parsed.transactions) || !Array.isArray(parsed.budgets)) {
+            const parsed = JSON.parse(text);
+            
+            // 支持两种格式
+            let payload: BillTransferPayload;
+            if (Array.isArray(parsed)) {
+              // 纯交易数组格式
+              payload = {
+                transactions: parsed,
+                budgets: [],
+              };
+            } else if (parsed && parsed.transactions && parsed.budgets) {
+              // BillTransferPayload 格式
+              payload = parsed;
+            } else {
+              throw new Error('Invalid JSON format');
+            }
+            
+            // 验证数组类型
+            if (!Array.isArray(payload.transactions) || !Array.isArray(payload.budgets)) {
               throw new Error('Invalid local bill payload');
             }
-            resolve(parsed);
+            
+            resolve(payload);
           } catch (error) {
             console.error('Failed to parse JSON', error);
             resolve(null);
@@ -160,11 +178,29 @@ export async function importLocalBills(): Promise<BillTransferPayload | null> {
     }
     const fileUri = result.assets[0].uri;
     const raw = await FileSystem.readAsStringAsync(fileUri);
-    const parsed = JSON.parse(raw) as BillTransferPayload;
-    if (!parsed || !Array.isArray(parsed.transactions) || !Array.isArray(parsed.budgets)) {
+    const parsed = JSON.parse(raw);
+    
+    // 支持两种格式
+    let payload: BillTransferPayload;
+    if (Array.isArray(parsed)) {
+      // 纯交易数组格式
+      payload = {
+        transactions: parsed,
+        budgets: [],
+      };
+    } else if (parsed && parsed.transactions && parsed.budgets) {
+      // BillTransferPayload 格式
+      payload = parsed;
+    } else {
+      throw new Error('Invalid JSON format');
+    }
+    
+    // 验证数组类型
+    if (!Array.isArray(payload.transactions) || !Array.isArray(payload.budgets)) {
       throw new Error('Invalid local bill payload');
     }
-    return parsed;
+    
+    return payload;
   } catch (error) {
     console.error('Failed to import local bills', error);
     return null;
