@@ -165,11 +165,17 @@ function reducer(state: BudgetState, action: BudgetAction): BudgetState {
         ...item,
         userId: ownerId ?? item.userId,
       }));
+      // 改进的去重逻辑：同时检查 ID 和 userId
+      // 只有当两者都相同时，才为重复数据
       const incomingTransactions = normalizedTransactions.filter(
-        (item) => !state.transactions.some((existing) => existing.id === item.id),
+        (item) => !state.transactions.some(
+          (existing) => existing.id === item.id && existing.userId === item.userId
+        ),
       );
       const incomingBudgets = normalizedBudgets.filter(
-        (item) => !state.budgets.some((existing) => existing.id === item.id),
+        (item) => !state.budgets.some(
+          (existing) => existing.id === item.id && existing.userId === item.userId
+        ),
       );
       return {
         ...state,
